@@ -6,59 +6,54 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import TensorDataset, DataLoader
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, classification_report, confusion_matrix
+import pandas as pd
 
 from models import ContrastiveAlignmentNet, SupConLoss
 
-def load_dataset(feature_dir, domain_label=0):
-    """Loads X and y from feature_dir. Returns TensorDataset with (features, labels, domain)."""
+def load_train_val(feature_dir):
+    """Loads X_train, y_train, X_val, y_val from feature_dir and concatenates them."""
     X_train = np.load(os.path.join(feature_dir, "X_train.npy"))
     y_train = np.load(os.path.join(feature_dir, "y_train.npy"))
     X_val = np.load(os.path.join(feature_dir, "X_val.npy"))
     y_val = np.load(os.path.join(feature_dir, "y_val.npy"))
+    
+    X_all = np.concatenate([X_train, X_val], axis=0)
+    y_all = np.concatenate([y_train, y_val], axis=0)
+    d_all = np.zeros(y_all.shape) # Dummy domain
+    
+    return TensorDataset(torch.tensor(X_all).float(), torch.tensor(y_all).long(), torch.tensor(d_all).long())
+
+def load_test(feature_dir):
+    """Loads X_test, y_test from feature_dir."""
     try:
         X_test = np.load(os.path.join(feature_dir, "X_test.npy"))
         y_test = np.load(os.path.join(feature_dir, "y_test.npy"))
     except FileNotFoundError:
-        print("Test set not found. Falling back to validation set for evaluation.")
-        X_test, y_test = X_val, y_val
-    
-    # Train + Val for full training
-    X_all = np.concatenate([X_train, X_val], axis=0)
-    y_all = np.concatenate([y_train, y_val], axis=0)
-    
-    d_all = np.full(y_all.shape, domain_label)
-    d_test = np.full(y_test.shape, domain_label)
-    
-    train_dataset = TensorDataset(torch.tensor(X_all).float(), torch.tensor(y_all).long(), torch.tensor(d_all).long())
-    test_dataset = TensorDataset(torch.tensor(X_test).float(), torch.tensor(y_test).long(), torch.tensor(d_test).long())
-    
-    return train_dataset, test_dataset
+        print(f"Test set not found in {feature_dir}. Falling back to validation set.")
+        X_test = np.load(os.path.join(feature_dir, "X_val.npy"))
+        y_test = np.load(os.path.join(feature_dir, "y_val.npy"))
+        
+    d_test = np.zeros(y_test.shape) # Dummy domain
+    return TensorDataset(torch.tensor(X_test).float(), torch.tensor(y_test).long(), torch.tensor(d_test).long())
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--edaic_features", type=str, default="features/features_edaic_layer6")
-    parser.add_argument("--cmdc_features", type=str, default=None, help="Path to CMDC features. If None, trains only on EDAIC.")
+    parser.add_argument("--train_data", type=str, required=True, help="Directory containing train/val features.")
+    parser.add_argument("--test_data", type=str, required=True, help="Directory containing test features.")
+    parser.add_argument("--exp_name", type=str, default="cross_lingual", help="Prefix for output result files.")
     parser.add_argument("--epochs", type=int, default=30)
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--lam", type=float, default=0.5, help="Lambda weight for SupConLoss vs CrossEntropy")
     args = parser.parse_args()
 
-    # Load English Data
-    print(f"Loading EDAIC features from {args.edaic_features}...")
-    train_edaic, test_edaic = load_dataset(args.edaic_features, domain_label=0)
+    # Load Train Data
+    print(f"Loading training features from {args.train_data}...")
+    full_train = load_train_val(args.train_data)
     
-    # Load Mandarin Data if provided
-    if args.cmdc_features and os.path.exists(args.cmdc_features):
-        print(f"Loading CMDC features from {args.cmdc_features}...")
-        train_cmdc, test_cmdc = load_dataset(args.cmdc_features, domain_label=1)
-        # Concat datasets
-        full_train = torch.utils.data.ConcatDataset([train_edaic, train_cmdc])
-        full_test = torch.utils.data.ConcatDataset([test_edaic, test_cmdc])
-    else:
-        print("No CMDC features provided or found. Training on EDAIC only.")
-        full_train = train_edaic
-        full_test = test_edaic
+    # Load Test Data
+    print(f"Loading testing features from {args.test_data}...")
+    full_test = load_test(args.test_data)
 
     train_loader = DataLoader(full_train, batch_size=args.batch_size, shuffle=True, drop_last=True)
     test_loader = DataLoader(full_test, batch_size=args.batch_size, shuffle=False)
@@ -148,7 +143,8 @@ def main():
     
     # Save results to file
     os.makedirs("output", exist_ok=True)
-    with open(os.path.join("output", "clead_edaic_results.txt"), "w") as f:
+    txt_path = os.path.join("output", f"{args.exp_name}_results.txt")
+    with open(txt_path, "w") as f:
         f.write("CLeaD Contrastive Alignment Results\n")
         f.write(f"Accuracy: {acc:.4f}\n")
         f.write(f"F1 Score: {f1:.4f}\n")
@@ -158,12 +154,6 @@ def main():
         f.write("Classification Report:\n")
         f.write(report)
         
-    # Save results to Excel-compatible CSV
-    metrics_data = {
-        "Metric": ["Accuracy", "F1 Score", "ROC AUC", "Precision (Healthy)", "Precision (Depressed)", "Recall (Healthy)", "Recall (Depressed)", "Support (Healthy)", "Support (Depressed)"],
-        "Value": [acc, f1, auc, 0.95, 0.89, 0.93, 0.91, 3885, 2147] # Note: Hardcoded classification report metrics will be dynamic in actual runs based on sklearn report dict, but keeping simple for this update
-    }
-    
     # Generate dynamic report dictionary for CSV
     report_dict = classification_report(all_labels, all_preds, zero_division=0, output_dict=True)
     csv_data = {
@@ -181,9 +171,10 @@ def main():
         ]
     }
     df = pd.DataFrame(csv_data)
-    df.to_csv(os.path.join("output", "clead_edaic_results.csv"), index=False)
+    csv_path = os.path.join("output", f"{args.exp_name}_results.csv")
+    df.to_csv(csv_path, index=False)
         
-    print("\nResults automatically saved to output/clead_edaic_results.txt and .csv")
+    print(f"\nResults automatically saved to {txt_path} and {csv_path}")
 
 if __name__ == "__main__":
     main()

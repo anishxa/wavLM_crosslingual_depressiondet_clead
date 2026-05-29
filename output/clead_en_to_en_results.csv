@@ -1,0 +1,10 @@
+Metric,Value
+Accuracy,0.8255968169761273
+F1 Score (Overall),0.7560296846011132
+ROC AUC,0.8998430062240029
+Precision (Healthy),0.8663046289113008
+Precision (Depressed),0.7528868360277137
+Recall (Healthy),0.8622908622908623
+Recall (Depressed),0.759198882161155
+Support (Healthy),3885.0
+Support (Depressed),2147.0
