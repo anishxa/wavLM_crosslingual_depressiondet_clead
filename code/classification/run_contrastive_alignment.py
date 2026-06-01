@@ -89,9 +89,11 @@ def main():
             # CE Loss
             ce_loss = criterion_ce(logits, labels)
             
-            # SupCon Loss requires shape [bsz, n_views, proj_dim]
-            # Since we don't have explicit augmented views, we treat the batch itself as views
-            # and SupCon aligns features with the same class label
+            # Single-View Supervised Contrastive Loss (SupCon):
+            # Standard SupCon uses 2 augmented views per sample. Here, we pass proj.unsqueeze(1) 
+            # as a single view ([bsz, 1, proj_dim]) to avoid distorting clinical acoustic markers 
+            # via arbitrary audio data augmentation. We treat the batch itself as implicit views,
+            # aligning samples sharing the same class label.
             proj_unsqueezed = proj.unsqueeze(1)
             supcon_loss = criterion_supcon(proj_unsqueezed, labels=labels)
             

@@ -130,7 +130,11 @@ def train_clead(train_dir, test_dir, epochs=30, batch_size=32):
             features, labels = features.to(device), labels.to(device)
             optimizer.zero_grad()
             proj, logits = model(features)
-            ce_loss = criterion_ce(logits, labels)
+            # Single-View Supervised Contrastive Loss (SupCon):
+            # Standard SupCon uses 2 augmented views per sample. Here, we pass proj.unsqueeze(1) 
+            # as a single view ([bsz, 1, proj_dim]) to avoid distorting clinical acoustic markers 
+            # via arbitrary audio data augmentation. We treat the batch itself as implicit views,
+            # aligning samples sharing the same class label.
             proj_unsqueezed = proj.unsqueeze(1)
             supcon_loss = criterion_supcon(proj_unsqueezed, labels=labels)
             loss = 0.5 * supcon_loss + 0.5 * ce_loss
