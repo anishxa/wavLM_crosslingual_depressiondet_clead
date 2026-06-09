@@ -55,8 +55,10 @@ This repository contains the codebase for cross-lingual zero-shot depression det
 4. **Sequence Modeling (Bi-GRU):** Chronological sequence modeling groups segment embeddings per speaker and feeds them to a bidirectional GRU with self-attention pooling to capture temporal trajectories.
 
 ## Datasets
-- **E-DAIC:** English corpus used for baseline training and evaluation.
-- **MODMA:** Mandarin corpus used to validate zero-shot cross-lingual alignment.
+- **E-DAIC:** English corpus (Germanic) — used for **training** in the zero-shot cross-lingual transfer paradigm.
+- **MODMA:** Mandarin corpus (Tonal) — used as the **unseen test target** to validate zero-shot cross-lingual generalisation.
+
+> **Cross-Lingual Transfer Protocol:** Models are trained exclusively on English (E-DAIC) and evaluated directly on Mandarin (MODMA) without any target-language fine-tuning. This is the core zero-shot EN → ZH transfer setting throughout the ablation study.
 
 ## Execution Flow: Step-by-Step Guide to Running the Pipeline
 
@@ -167,7 +169,9 @@ Below are the segment-level and speaker-level evaluation scores obtained from th
 |  | CLeaD | 3/5 | 5/5 | 80.00% |
 | | | | | |
 
-### 3. WavLM Layer Ablation Study (MIX -> ZH Transfer)
+### 3. WavLM Layer Ablation Study — Cross-Lingual EN → ZH Transfer
+
+> **Methodology:** Models are **trained on English (E-DAIC, mixed-domain)** and **tested on Mandarin (MODMA)** in a fully zero-shot cross-lingual setting — no Mandarin data is seen during training. The goal is to identify which WavLM layer yields the most language-agnostic, clinically discriminative representations.
 | WavLM Layer | Model | Segment Accuracy | Segment F1 | Segment AUC | Speaker Vote (MDD/HC) |
 | :---: | :--- | :---: | :---: | :---: | :--- |
 | **Layer 6** | LR | 50.38% | 0.4272 | 0.4809 | 2/5 MDD, 4/5 HC |
