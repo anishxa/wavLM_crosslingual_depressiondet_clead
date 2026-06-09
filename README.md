@@ -1,100 +1,156 @@
-# Cross-Lingual Depression Detection (WavLM + CLeaD)
+# Cross-Lingual Depression Detection (WavLM + CLeaD + Sequence Models)
 
-This repository contains the codebase for cross-lingual zero-shot depression detection from speech, specifically targeting the transfer gap between Germanic (English) and Tonal (Mandarin) languages. 
+This repository contains the codebase for cross-lingual zero-shot depression detection from speech, specifically targeting the transfer gap between Germanic (English) and Tonal (Mandarin) languages.
 
-This architecture was designed for submission to SLT.
+## Pipeline Structure
+```
+                                AUDIO INPUT
+                                     |
+                                     v
+                        10s sliding segment window
+                                     |
+                                     v
+                  WavLM-Large Encoder (Frozen middle layers)
+                                     |
+                                     v
+                         Segment Embeddings (768-d)
+                                     |
+         +---------------------------+---------------------------+
+         v (Static Segment Pooling)                              v (Temporal Sequence Modeling)
+  +-----------------------------+                         +-----------------------------+
+  | Mean / Max Segment Pooling  |                         |  Group Segments by Speaker  |
+  +-----------------------------+                         +-----------------------------+
+         |                                                               |
+         +--------------------------+                                    v
+         |                          |                             +-----------------------------+
+         v                          v                             | Chronological sort by time  |
+  +------------------+       +--------------+                     +-----------------------------+
+  | CLeaD Alignment  |       | SVM-RBF      |                                    |
+  | Head             |       | Classifier   |                                    v
+  +------------------+       +--------------+                     +-----------------------------+
+         |                          |                             |  Bidirectional GRU          |
+         v (SupCon Loss)            |                             +-----------------------------+
+  +------------------+              |                                    |
+  | Projection (128) |              |                                    v
+  +------------------+              |                             +-----------------------------+
+         |                          |                             |  Self-Attention Pooling     |
+         v                          v                             +-----------------------------+
+  +------------------+       +--------------+                                    |
+  | Linear Class.    |       | Support      |                                    v
+  | Head             |       | Vectors      |                     +-----------------------------+
+  +------------------+       +--------------+                     |  Linear Classifier Head     |
+         |                          |                             +-----------------------------+
+         +--------------------------+                                            |
+                                    |                                            v
+                             [Segment Preds]                       [Speaker-level Sequence Pred]
+                                    |
+                                    v (Speaker Majority Vote)
+                             [Speaker Preds]
+```
 
-## Architecture
-
+## Component Overview
 1. **Feature Extractor:** We use `microsoft/wavlm-base-plus` (Layer 6) to extract robust, noise-augmented speech representations.
-2. **Classifier (CLeaD):** A custom PyTorch architecture implementing **Contrastive Learning for Depression Detection (CLeaD)**. 
-    - The model uses Supervised Contrastive Loss (SupCon) to pull all "Depressed" speech signatures into a shared latent space, forcing the network to ignore the language spoken (English vs. Mandarin) and focus purely on acoustic biomarkers of depression (e.g., psychomotor retardation).
+2. **CLeaD (Contrastive Alignment):** A dual-head architecture using Supervised Contrastive Loss (SupCon) to pull same-class representations together across English and Mandarin domains, mapping them to a shared clinical manifold.
+3. **Non-Linear Classifier (SVM-RBF):** Radial Basis Function kernel SVM is applied to standardized segment embeddings to capture non-linear decision boundaries.
+4. **Sequence Modeling (Bi-GRU):** Chronological sequence modeling groups segment embeddings per speaker and feeds them to a bidirectional GRU with self-attention pooling to capture temporal trajectories.
 
 ## Datasets
 - **E-DAIC:** English corpus used for baseline training and evaluation.
-- **MODMA / MODMA:** Mandarin corpora used to validate zero-shot cross-lingual alignment.
-
-*(Note: Massive audio chunks and `.npy` feature arrays are tracked via `.gitignore` and are not included in this repository).*
+- **MODMA:** Mandarin corpus used to validate zero-shot cross-lingual alignment.
 
 ## How to Run the Pipeline
 
 ### 1. Preprocessing
-To cut, balance, and segment the transcripts into 10-second sliding windows:
+To segment the audio datasets into 10-second sliding windows:
 ```bash
-python3 code/preprocessing/cut_edaic_utterances.py
-python3 code/preprocessing/balance_utterance_table.py
 python3 code/preprocessing/segment_edaic_sliding.py
 python3 code/preprocessing/split_metadata.py --input_csv utterance_table_edaic_segmented.csv
 ```
 
 ### 2. Feature Extraction
-To run the segmented `.wav` files through the WavLM transformer:
+To extract the mean, max, and concatenated pooling features across multiple layers:
 ```bash
-python3 code/feature_extraction/extract_edaic_layer.py --metadata utterance_table_edaic_segmented_split.csv --output_dir features/features_edaic_layer6 --layer 6
-```
-*(Repeat for `extract_modma_layer.py` when using Mandarin data).*
-
-### 3. Model Training & Evaluation (Ablation Study)
-To prove the effectiveness of the contrastive alignment, run both the "Before CLeaD" (Baseline) and "After CLeaD" models side-by-side.
-
-**EN → ZH (Train on English E-DAIC, Test on Mandarin MODMA)**
-```bash
-# Before CLeaD
-python3 code/classification/run_baseline_classifier.py --train_data features/features_edaic_layer6 --test_data features/features_modma_layer6 --exp_name baseline_EN_to_ZH
-
-# After CLeaD
-python3 code/classification/run_contrastive_alignment.py --train_data features/features_edaic_layer6 --test_data features/features_modma_layer6 --exp_name clead_EN_to_ZH
+python3 extract_ablation_features.py
 ```
 
-**ZH → EN (Train on Mandarin MODMA, Test on English E-DAIC)**
+### 3. Run Comprehensive Multi-Model Ablation Study
+To train and evaluate LR, SVM-Linear, SVM-RBF, Bi-GRU, and CLeaD across all configurations and layers:
 ```bash
-# Before CLeaD
-python3 code/classification/run_baseline_classifier.py --train_data features/features_modma_layer6 --test_data features/features_edaic_layer6 --exp_name baseline_ZH_to_EN
-
-# After CLeaD
-python3 code/classification/run_contrastive_alignment.py --train_data features/features_modma_layer6 --test_data features/features_edaic_layer6 --exp_name clead_ZH_to_EN
-```
-
-**MIX → EN (Train on Balanced Mix, Test on English E-DAIC)**
-```bash
-# Before CLeaD
-python3 code/classification/run_baseline_classifier.py --train_data features/features_mix_layer6 --test_data features/features_edaic_layer6 --exp_name baseline_MIX_to_EN
-
-# After CLeaD
-python3 code/classification/run_contrastive_alignment.py --train_data features/features_mix_layer6 --test_data features/features_edaic_layer6 --exp_name clead_MIX_to_EN
-```
-
-**MIX → ZH (Train on Balanced Mix, Test on Mandarin MODMA)**
-```bash
-# Before CLeaD
-python3 code/classification/run_baseline_classifier.py --train_data features/features_mix_layer6 --test_data features/features_modma_layer6 --exp_name baseline_MIX_to_ZH
-
-# After CLeaD
-python3 code/classification/run_contrastive_alignment.py --train_data features/features_mix_layer6 --test_data features/features_modma_layer6 --exp_name clead_MIX_to_ZH
+python3 run_comprehensive_ablation.py
 ```
 
 ## Results
 
-Below are the segment-level and speaker-level evaluation scores across the 6 cross-lingual configurations for **WavLM Layer 6**:
+Below are the segment-level and speaker-level evaluation scores obtained from the comprehensive ablation run:
 
-### 1. Segment-Level Metrics
+### 1. Segment-Level Metrics (WavLM Layer 6)
 | Configuration | Model | Accuracy | F1 Score | ROC AUC |
 | :--- | :--- | :---: | :---: | :---: |
-| **EN -> EN** | Baseline <br> CLeaD | 73.79% <br> 74.11% | 0.6628 <br> 0.6148 | 0.8043 <br> 0.7704 |
-| **EN -> ZH** | Baseline <br> CLeaD | 49.58% <br> 50.13% | 0.2545 <br> 0.2833 | 0.4807 <br> 0.5255 |
-| **ZH -> EN** | Baseline <br> CLeaD | 54.32% <br> 55.35% | 0.4217 <br> 0.3490 | 0.5357 <br> 0.5539 |
-| **ZH -> ZH** | Baseline <br> CLeaD | 53.63% <br> 54.14% | 0.4411 <br> 0.4488 | 0.5368 <br> 0.5721 |
-| **MIX -> EN** | Baseline <br> CLeaD | 66.95% <br> 69.34% | 0.5453 <br> 0.5035 | 0.7023 <br> 0.7088 |
-| **MIX -> ZH** | Baseline <br> **CLeaD** | 50.38% <br> **56.85%** | 0.4272 <br> **0.5386** | 0.4809 <br> **0.5855** |
+| **EN -> EN** | LR | 73.79% | 0.6628 | 0.8043 |
+|  | SVM-Linear | 72.85% | 0.6476 | 0.7900 |
+|  | SVM-RBF | 72.47% | 0.5581 | 0.7583 |
+|  | GRU | 52.17% | 0.3529 | 0.5980 |
+|  | CLeaD | 72.43% | 0.6143 | 0.7712 |
+| | | | | |
+| **EN -> ZH** | LR | 49.58% | 0.2545 | 0.4807 |
+|  | SVM-Linear | 49.50% | 0.1913 | 0.5139 |
+|  | SVM-RBF | 48.91% | 0.2245 | 0.5385 |
+|  | GRU | 30.00% | 0.3636 | 0.3600 |
+|  | CLeaD | 51.42% | 0.3171 | 0.5625 |
+| | | | | |
+| **ZH -> EN** | LR | 54.32% | 0.4217 | 0.5357 |
+|  | SVM-Linear | 54.30% | 0.4100 | 0.5343 |
+|  | SVM-RBF | 54.21% | 0.2955 | 0.5193 |
+|  | GRU | 73.91% | 0.0000 | 0.4118 |
+|  | CLeaD | 54.27% | 0.3881 | 0.5325 |
+| | | | | |
+| **ZH -> ZH** | LR | 53.63% | 0.4411 | 0.5368 |
+|  | SVM-Linear | 55.39% | 0.4660 | 0.5613 |
+|  | SVM-RBF | 54.76% | 0.4494 | 0.5606 |
+|  | GRU | 60.00% | 0.3333 | 0.8000 |
+|  | CLeaD | 55.47% | 0.4702 | 0.5837 |
+| | | | | |
+| **MIX -> EN** | LR | 66.95% | 0.5453 | 0.7023 |
+|  | SVM-Linear | 66.29% | 0.5375 | 0.7001 |
+|  | SVM-RBF | 69.83% | 0.5139 | 0.7254 |
+|  | GRU | 47.83% | 0.4000 | 0.6471 |
+|  | CLeaD | 67.55% | 0.4776 | 0.6822 |
+| | | | | |
+| **MIX -> ZH** | LR | 50.38% | 0.4272 | 0.4809 |
+|  | SVM-Linear | 51.63% | 0.4411 | 0.5009 |
+|  | SVM-RBF | 54.64% | 0.4419 | 0.5668 |
+|  | GRU | 70.00% | 0.5714 | 0.7200 |
+|  | CLeaD | 56.31% | 0.4690 | 0.5830 |
+| | | | | |
 
 ### 2. Speaker-Level Majority Vote Metrics (MODMA Test Set)
-For the configurations evaluating on the **MODMA** clinical cohort (10 unseen test speakers: 5 MDD, 5 HC):
+| Configuration | Model | MDD Correct | HC Correct | Speaker Acc |
+| :--- | :--- | :---: | :---: | :---: |
+| **ZH -> ZH** | LR | 1/5 | 5/5 | 60.00% |
+|  | GRU | 1/5 | 5/5 | 60.00% |
+|  | CLeaD | 2/5 | 5/5 | 70.00% |
+| | | | | |
+| **MIX -> ZH** | LR | 2/5 | 4/5 | 60.00% |
+|  | GRU | 2/5 | 5/5 | 70.00% |
+|  | CLeaD | 3/5 | 5/5 | 80.00% |
+| | | | | |
 
-*   **Monolingual (ZH -> ZH):** Both models correctly classify 1/5 MDD speakers and 5/5 HC speakers (F1: 0.4488).
-*   **Mixed Cross-Lingual Transfer (MIX -> ZH):** 
-    *   **Baseline:** Correctly classifies **2/5 MDD** and **4/5 HC** speakers (Speaker F1: **0.5000**, Accuracy: **60.00%**).
-    *   **CLeaD:** Correctly classifies **4/5 MDD** and **4/5 HC** speakers (Speaker F1: **0.8000**, Accuracy: **80.00%**, AUC: **0.7600**).
-    *   **Key Victory:** CLeaD successfully aligns cross-lingual features on the joint manifold, leveraging the larger English E-DAIC dataset to regularize the scarce Mandarin cohort and correcting critical block-level classification errors.
-
-### 3. WavLM Layer Ablation Study
-The full comparative summary table across all WavLM layers (Layers 6, 7, 8, and 9) is compiled and saved in [ablation_summary_table.txt](./output/ablation_summary_table.txt) and [ablation_summary.md](./output/ablation_summary.md).
+### 3. WavLM Layer Ablation Study (MIX -> ZH Transfer)
+| WavLM Layer | Model | Segment Accuracy | Segment F1 | Segment AUC | Speaker Vote (MDD/HC) |
+| :---: | :--- | :---: | :---: | :---: | :--- |
+| **Layer 6** | LR | 50.38% | 0.4272 | 0.4809 | 2/5 MDD, 4/5 HC |
+|  | GRU | 70.00% | 0.5714 | 0.7200 | 2/5 MDD, 5/5 HC |
+|  | CLeaD | 56.31% | 0.4690 | 0.5830 | 3/5 MDD, 5/5 HC |
+| | | | | | |
+| **Layer 7** | LR | 47.20% | 0.4352 | 0.4570 | 3/5 MDD, 4/5 HC |
+|  | GRU | 80.00% | 0.7500 | 0.6000 | 3/5 MDD, 5/5 HC |
+|  | CLeaD | 51.84% | 0.4323 | 0.5282 | 2/5 MDD, 5/5 HC |
+| | | | | | |
+| **Layer 8** | LR | 46.16% | 0.4339 | 0.4513 | 2/5 MDD, 3/5 HC |
+|  | GRU | 70.00% | 0.6667 | 0.7200 | 3/5 MDD, 4/5 HC |
+|  | CLeaD | 49.33% | 0.3883 | 0.5051 | 2/5 MDD, 5/5 HC |
+| | | | | | |
+| **Layer 9** | LR | 46.20% | 0.4415 | 0.4476 | 2/5 MDD, 3/5 HC |
+|  | GRU | 60.00% | 0.5000 | 0.5200 | 2/5 MDD, 4/5 HC |
+|  | CLeaD | 52.63% | 0.4155 | 0.5330 | 1/5 MDD, 5/5 HC |
+| | | | | | |

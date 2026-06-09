@@ -7,8 +7,8 @@ import torchaudio
 from transformers import WavLMModel
 from tqdm import tqdm
 
-device = torch.device("mps" if torch.backends.mps.is_available() else "cuda" if torch.cuda.is_available() else "cpu")
-print(f"Using device: {device} for accelerated ablation feature extraction")
+device = torch.device("cpu")
+print(f"Using device: {device} for accelerated ablation feature extraction (avoiding slow MPS overhead)")
 
 # Load WavLM Model
 print("Loading microsoft/wavlm-base-plus model...")
@@ -56,8 +56,8 @@ def extract_for_dataset(metadata_csv, dataset_name, batch_size=32):
     print(f"\n==========================================")
     print(f"Processing Dataset: {dataset_name} ({len(df)} rows)")
     
-    # Initialize output structures for layers 7, 8, 9
-    layers = [7, 8, 9]
+    # Initialize output structures for layers 6, 7, 8, 9
+    layers = [6, 7, 8, 9]
     for layer in layers:
         os.makedirs(f"features/features_{dataset_name}_layer{layer}", exist_ok=True)
         
@@ -68,10 +68,12 @@ def extract_for_dataset(metadata_csv, dataset_name, batch_size=32):
             
         print(f"Extracting {split} split ({len(df_split)} items)...")
         dataset = SpeechDataset(df_split)
-        dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=2)
+        dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=0)
         
-        # Prepare list to accumulate features for each layer
-        X_accum = {layer: [] for layer in layers}
+        # Prepare list to accumulate features for each layer and pooling method
+        X_accum_mean = {layer: [] for layer in layers}
+        X_accum_max = {layer: [] for layer in layers}
+        X_accum_concat = {layer: [] for layer in layers}
         y_accum = []
         
         with torch.no_grad():
@@ -88,21 +90,37 @@ def extract_for_dataset(metadata_csv, dataset_name, batch_size=32):
                 
                 # Extract pooled features for each layer
                 for layer in layers:
+                    # hidden_states shape: (batch_size, seq_len, 768)
                     layer_feat = out.hidden_states[layer]
-                    pooled = layer_feat.mean(dim=1).cpu().numpy()  # shape (batch_size, 768)
-                    X_accum[layer].append(pooled)
+                    
+                    mean_pooled = layer_feat.mean(dim=1).cpu().numpy()  # shape (batch_size, 768)
+                    max_pooled = layer_feat.max(dim=1).values.cpu().numpy()  # shape (batch_size, 768)
+                    concat_pooled = np.concatenate([mean_pooled, max_pooled], axis=1)  # shape (batch_size, 1536)
+                    
+                    X_accum_mean[layer].append(mean_pooled)
+                    X_accum_max[layer].append(max_pooled)
+                    X_accum_concat[layer].append(concat_pooled)
                     
                 y_accum.append(labels.numpy())
                 
         # Stack and save features for each layer
         y_stacked = np.concatenate(y_accum, axis=0)
         for layer in layers:
-            X_stacked = np.concatenate(X_accum[layer], axis=0)
-            X_path = f"features/features_{dataset_name}_layer{layer}/X_{split}.npy"
+            X_stacked_mean = np.concatenate(X_accum_mean[layer], axis=0)
+            X_stacked_max = np.concatenate(X_accum_max[layer], axis=0)
+            X_stacked_concat = np.concatenate(X_accum_concat[layer], axis=0)
+            
+            # Paths
             y_path = f"features/features_{dataset_name}_layer{layer}/y_{split}.npy"
-            np.save(X_path, X_stacked)
+            
+            # Save all poolings
+            np.save(f"features/features_{dataset_name}_layer{layer}/X_{split}.npy", X_stacked_mean) # compatibility
+            np.save(f"features/features_{dataset_name}_layer{layer}/X_{split}_mean.npy", X_stacked_mean)
+            np.save(f"features/features_{dataset_name}_layer{layer}/X_{split}_max.npy", X_stacked_max)
+            np.save(f"features/features_{dataset_name}_layer{layer}/X_{split}_concat.npy", X_stacked_concat)
             np.save(y_path, y_stacked)
-            print(f"  Layer {layer} saved: X shape {X_stacked.shape}, y shape {y_stacked.shape}")
+            
+            print(f"  Layer {layer} saved: Mean shape {X_stacked_mean.shape}, Max shape {X_stacked_max.shape}, Concat shape {X_stacked_concat.shape}")
 
 if __name__ == "__main__":
     # Run extraction on all three datasets

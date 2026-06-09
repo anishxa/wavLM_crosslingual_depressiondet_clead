@@ -3,27 +3,28 @@ import argparse
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, classification_report, confusion_matrix
 
-def load_train_val_numpy(feature_dir):
+def load_train_val_numpy(feature_dir, pooling="mean"):
     """Loads X_train, y_train, X_val, y_val from feature_dir and concatenates them."""
-    X_train = np.load(os.path.join(feature_dir, "X_train.npy"))
+    X_train = np.load(os.path.join(feature_dir, f"X_train_{pooling}.npy"))
     y_train = np.load(os.path.join(feature_dir, "y_train.npy"))
-    X_val = np.load(os.path.join(feature_dir, "X_val.npy"))
+    X_val = np.load(os.path.join(feature_dir, f"X_val_{pooling}.npy"))
     y_val = np.load(os.path.join(feature_dir, "y_val.npy"))
     
     X_all = np.concatenate([X_train, X_val], axis=0)
     y_all = np.concatenate([y_train, y_val], axis=0)
     return X_all, y_all
 
-def load_test_numpy(feature_dir):
+def load_test_numpy(feature_dir, pooling="mean"):
     """Loads X_test, y_test from feature_dir."""
     try:
-        X_test = np.load(os.path.join(feature_dir, "X_test.npy"))
+        X_test = np.load(os.path.join(feature_dir, f"X_test_{pooling}.npy"))
         y_test = np.load(os.path.join(feature_dir, "y_test.npy"))
     except FileNotFoundError:
         print(f"Test set not found in {feature_dir}. Falling back to validation set.")
-        X_test = np.load(os.path.join(feature_dir, "X_val.npy"))
+        X_test = np.load(os.path.join(feature_dir, f"X_val_{pooling}.npy"))
         y_test = np.load(os.path.join(feature_dir, "y_val.npy"))
     return X_test, y_test
 
@@ -32,19 +33,29 @@ def main():
     parser.add_argument("--train_data", type=str, required=True, help="Directory containing train/val features.")
     parser.add_argument("--test_data", type=str, required=True, help="Directory containing test features.")
     parser.add_argument("--exp_name", type=str, default="baseline_cross_lingual", help="Prefix for output result files.")
+    parser.add_argument("--classifier", type=str, default="lr", choices=["lr", "svm_linear", "svm_rbf"], help="Classifier type.")
+    parser.add_argument("--pooling", type=str, default="mean", choices=["mean", "max", "concat"], help="Pooling type.")
     args = parser.parse_args()
 
     # Load Train Data
-    print(f"Loading training features from {args.train_data}...")
-    X_train, y_train = load_train_val_numpy(args.train_data)
+    print(f"Loading training features (pooling: {args.pooling}) from {args.train_data}...")
+    X_train, y_train = load_train_val_numpy(args.train_data, args.pooling)
     
     # Load Test Data
-    print(f"Loading testing features from {args.test_data}...")
-    X_test, y_test = load_test_numpy(args.test_data)
+    print(f"Loading testing features (pooling: {args.pooling}) from {args.test_data}...")
+    X_test, y_test = load_test_numpy(args.test_data, args.pooling)
     
-    # Train Logistic Regression
-    print("\n--- Training Baseline Logistic Regression ---")
-    clf = LogisticRegression(max_iter=1000, random_state=42, class_weight='balanced')
+    # Train Classifier
+    print(f"\n--- Training Baseline Classifier: {args.classifier.upper()} ---")
+    if args.classifier == "lr":
+        clf = LogisticRegression(max_iter=1000, random_state=42, class_weight='balanced')
+    elif args.classifier == "svm_linear":
+        clf = SVC(kernel="linear", C=1.0, class_weight="balanced", probability=True, cache_size=2000, random_state=42)
+    elif args.classifier == "svm_rbf":
+        clf = SVC(kernel="rbf", C=1.0, gamma="scale", class_weight="balanced", probability=True, cache_size=2000, random_state=42)
+    else:
+        raise ValueError(f"Unknown classifier type: {args.classifier}")
+        
     clf.fit(X_train, y_train)
     
     # Predict
