@@ -72,7 +72,6 @@ Follow these steps sequentially to run the entire pipeline from raw data setup t
    ```
 3. For MODMA, verify that raw files are structured locally and run the initialization setup:
    ```bash
-   python3 rename_cmdc_to_modma.py
    python3 code/preprocessing/prepare_local_modma.py
    ```
 
