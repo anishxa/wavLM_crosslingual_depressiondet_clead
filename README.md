@@ -55,59 +55,26 @@ This repository contains the codebase for cross-lingual zero-shot depression det
 4. **Sequence Modeling (Bi-GRU):** Chronological sequence modeling groups segment embeddings per speaker and feeds them to a bidirectional GRU with self-attention pooling to capture temporal trajectories.
 
 ## Datasets
-- **E-DAIC:** English corpus (Germanic) — used for **training** in the zero-shot cross-lingual transfer paradigm.
-- **MODMA:** Mandarin corpus (Tonal) — used as the **unseen test target** to validate zero-shot cross-lingual generalisation.
+- **E-DAIC:** English corpus used for baseline training and evaluation.
+- **MODMA:** Mandarin corpus used to validate zero-shot cross-lingual alignment.
 
-> **Cross-Lingual Transfer Protocol:** Models are trained exclusively on English (E-DAIC) and evaluated directly on Mandarin (MODMA) without any target-language fine-tuning. This is the core zero-shot EN → ZH transfer setting throughout the ablation study.
+## How to Run the Pipeline
 
-## Execution Flow: Step-by-Step Guide to Running the Pipeline
-
-Follow these steps sequentially to run the entire pipeline from raw data setup to final model evaluations:
-
-### Step 1: Raw Data Download & Initialization
-1. Download the raw English (E-DAIC) and Mandarin (MODMA) datasets.
-2. For E-DAIC, run the download script to retrieve raw clinical recordings:
-   ```bash
-   python3 download_edaic.py
-   ```
-3. For MODMA, verify that raw files are structured locally and run the initialization setup:
-   ```bash
-   python3 code/preprocessing/prepare_local_modma.py
-   ```
-
-### Step 2: Compile Metadata Tables
-Generate metadata CSV tables to map transcripts, paths, and ground-truth clinical scores:
-```bash
-python3 code/preprocessing/create_modma_utterance_table.py
-python3 code/preprocessing/create_modma_balanced_table.py
-```
-
-### Step 3: Segment Audio Recordings
-To capture clinical disfluencies and transient acoustic markers, slice the long-form audios into 10-second sliding segments:
+### 1. Preprocessing
+To segment the audio datasets into 10-second sliding windows:
 ```bash
 python3 code/preprocessing/segment_edaic_sliding.py
-python3 code/preprocessing/segment_modma_sliding.py
+python3 code/preprocessing/split_metadata.py --input_csv utterance_table_edaic_segmented.csv
 ```
 
-### Step 4: Split Metadata & Build Mixed Domain splits
-1. Generate speaker-independent train/val/test splits to prevent speaker leakage:
-   ```bash
-   python3 code/preprocessing/split_metadata.py --input_csv utterance_table_edaic_segmented.csv
-   python3 code/preprocessing/split_metadata.py --input_csv utterance_table_modma_segmented.csv
-   ```
-2. Build the combined mixed-domain training dataset metadata:
-   ```bash
-   python3 code/preprocessing/build_mixed_metadata.py
-   ```
-
-### Step 5: Extract Multi-Layer WavLM Pooled representations
-Run inference on WavLM-Large and compile Mean, Max, and Concatenated pooling representation matrices across layers 6, 7, 8, and 9:
+### 2. Feature Extraction
+To extract the mean, max, and concatenated pooling features across multiple layers:
 ```bash
 python3 extract_ablation_features.py
 ```
 
-### Step 6: Master Sweep and Evaluations
-Execute the master hyperparameter-tuned multi-model ablation study. This trains and evaluates LR, SVM-Linear, SVM-RBF, Bi-GRU, and CLeaD across all domains and WavLM layers, compiles results in `output/`, and auto-updates this README:
+### 3. Run Comprehensive Multi-Model Ablation Study
+To train and evaluate LR, SVM-Linear, SVM-RBF, Bi-GRU, and CLeaD across all configurations and layers:
 ```bash
 python3 run_comprehensive_ablation.py
 ```
@@ -168,9 +135,7 @@ Below are the segment-level and speaker-level evaluation scores obtained from th
 |  | CLeaD | 3/5 | 5/5 | 80.00% |
 | | | | | |
 
-### 3. WavLM Layer Ablation Study — Cross-Lingual EN → ZH Transfer
-
-> **Methodology:** Models are **trained on English (E-DAIC, mixed-domain)** and **tested on Mandarin (MODMA)** in a fully zero-shot cross-lingual setting — no Mandarin data is seen during training. The goal is to identify which WavLM layer yields the most language-agnostic, clinically discriminative representations.
+### 3. WavLM Layer Ablation Study (MIX -> ZH Transfer)
 | WavLM Layer | Model | Segment Accuracy | Segment F1 | Segment AUC | Speaker Vote (MDD/HC) |
 | :---: | :--- | :---: | :---: | :---: | :--- |
 | **Layer 6** | LR | 50.38% | 0.4272 | 0.4809 | 2/5 MDD, 4/5 HC |
