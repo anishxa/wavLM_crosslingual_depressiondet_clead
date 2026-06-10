@@ -10,7 +10,7 @@ This repository contains the codebase for cross-lingual zero-shot depression det
                         10s sliding segment window
                                      |
                                      v
-                  WavLM-Large Encoder (Frozen middle layers)
+                  WavLM-Base-Plus Encoder (Frozen middle layers)
                                      |
                                      v
                          Segment Embeddings (768-d)
@@ -18,7 +18,7 @@ This repository contains the codebase for cross-lingual zero-shot depression det
          +---------------------------+---------------------------+
          v (Static Segment Pooling)                              v (Temporal Sequence Modeling)
   +-----------------------------+                         +-----------------------------+
-  | Mean / Max Segment Pooling  |                         |  Group Segments by Speaker  |
+  | Mean Segment Pooling        |                         |  Group Segments by Speaker  |
   +-----------------------------+                         +-----------------------------+
          |                                                               |
          +--------------------------+                                    v
@@ -68,7 +68,7 @@ python3 code/preprocessing/split_metadata.py --input_csv utterance_table_edaic_s
 ```
 
 ### 2. Feature Extraction
-To extract the mean, max, and concatenated pooling features across multiple layers:
+To extract the mean pooling features across multiple layers:
 ```bash
 python3 extract_ablation_features.py
 ```
