@@ -208,7 +208,7 @@ def build_sequences(feature_dir, split, max_len=150):
         
     return padded_sequences, np.array(labels), masks
 
-def run_gru_classifier(train_dir, test_dir, epochs=40, batch_size=16, lr=1e-3, max_len=150):
+def run_gru_classifier(train_dir, test_dir, epochs=100, batch_size=16, lr=1e-3, max_len=150):
     # Reset random seeds inside the function to ensure reproducible initializations across all calls
     np.random.seed(42)
     torch.manual_seed(42)
@@ -293,7 +293,7 @@ def run_gru_classifier(train_dir, test_dir, epochs=40, batch_size=16, lr=1e-3, m
         
     return acc, f1, auc, spk_str, f1, acc
 
-def run_clead_classifier(train_dir, test_dir, epochs=30, batch_size=32):
+def run_clead_classifier(train_dir, test_dir, epochs=100, batch_size=32):
     # Reset random seeds inside the function to ensure reproducible initializations
     np.random.seed(42)
     torch.manual_seed(42)
@@ -319,9 +319,9 @@ def run_clead_classifier(train_dir, test_dir, epochs=30, batch_size=32):
     class_weights = len(y_train) / (len(class_counts) * class_counts.float())
     class_weights = class_weights.to(device)
     
-    model = ContrastiveAlignmentNet(input_dim=768, proj_dim=128, num_classes=2).to(device)
+    model = ContrastiveAlignmentNet(input_dim=768, proj_dim=256, num_classes=2).to(device)
     criterion_ce = nn.CrossEntropyLoss(weight=class_weights)
-    criterion_supcon = SupConLoss(temperature=0.07)
+    criterion_supcon = SupConLoss(temperature=0.1)
     optimizer = optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-4)
     
     model.train()
