@@ -31,7 +31,7 @@ This repository contains the codebase for cross-lingual zero-shot depression det
          |                          |                             |  Bidirectional GRU          |
          v (SupCon Loss)            |                             +-----------------------------+
   +------------------+              |                                    |
-  | Projection (128) |              |                                    v
+  | Projection (256) |              |                                    v
   +------------------+              |                             +-----------------------------+
          |                          |                             |  Self-Attention Pooling     |
          v                          v                             +-----------------------------+
