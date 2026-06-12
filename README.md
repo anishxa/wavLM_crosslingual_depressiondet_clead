@@ -61,10 +61,18 @@ This repository contains the codebase for cross-lingual zero-shot depression det
 ## How to Run the Pipeline
 
 ### 1. Preprocessing
-To segment the audio datasets into 10-second sliding windows:
+To segment the audio datasets into 10-second sliding windows and create the MIX dataset metadata:
 ```bash
+# 1. Segment and split EDAIC
 python3 code/preprocessing/segment_edaic_sliding.py
 python3 code/preprocessing/split_metadata.py --input_csv utterance_table_edaic_segmented.csv
+
+# 2. Segment and split MODMA
+python3 code/preprocessing/segment_modma_sliding.py
+python3 code/preprocessing/split_metadata.py --input_csv utterance_table_modma_segmented.csv
+
+# 3. Combine them to create the MIX dataset metadata
+python3 code/preprocessing/build_mixed_metadata.py
 ```
 
 ### 2. Feature Extraction
