@@ -1,4 +1,4 @@
-# Cross-Lingual Depression Detection (WavLM + CLeaD + Sequence Models)
+# Multi-Layer WavLM Ablation for Cross-Lingual Depression Detection: Contrastive Representation Alignment and Chronological Sequence Classifiers
 
 This repository contains the codebase for cross-lingual zero-shot depression detection from speech, specifically targeting the transfer gap between Germanic (English) and Tonal (Mandarin) languages.
 

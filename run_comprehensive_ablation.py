@@ -483,7 +483,7 @@ def main():
     # Automatically update README.md with the newly obtained results
     try:
         readme = []
-        readme.append("# Cross-Lingual Depression Detection (WavLM + CLeaD + Sequence Models)")
+        readme.append("# Multi-Layer WavLM Ablation for Cross-Lingual Depression Detection: Contrastive Representation Alignment and Chronological Sequence Classifiers")
         readme.append("")
         readme.append("This repository contains the codebase for cross-lingual zero-shot depression detection from speech, specifically targeting the transfer gap between Germanic (English) and Tonal (Mandarin) languages.")
         readme.append("")
