@@ -104,7 +104,7 @@ def run_segment_classifier(train_dir, test_dir, clf_type):
         preds = clf.predict(X_test)
         probs = clf.predict_proba(X_test)[:, 1]
     elif clf_type == "svm_linear":
-        step = 5 if len(X_train) > 5000 else 1
+        step = max(1, len(X_train) // 1500)
         X_train_sub = X_train[::step]
         y_train_sub = y_train[::step]
         
@@ -113,7 +113,7 @@ def run_segment_classifier(train_dir, test_dir, clf_type):
         cv = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
         base_clf = LinearSVC(class_weight="balanced", dual=False, tol=1e-2, max_iter=5000, random_state=42)
         param_grid = {"C": [0.001, 0.01, 0.1, 1.0, 10.0, 100.0]}
-        grid = GridSearchCV(base_clf, param_grid, cv=cv, scoring="f1", n_jobs=1, refit=False)
+        grid = GridSearchCV(base_clf, param_grid, cv=cv, scoring="f1", n_jobs=-1, refit=False)
         grid.fit(X_train_sub, y_train_sub)
         
         best_params = grid.best_params_
@@ -122,7 +122,7 @@ def run_segment_classifier(train_dir, test_dir, clf_type):
         preds = clf.predict(X_test)
         probs = clf.decision_function(X_test)
     elif clf_type == "svm_rbf":
-        step = 5 if len(X_train) > 5000 else 1
+        step = max(1, len(X_train) // 1500)
         X_train_sub = X_train[::step]
         y_train_sub = y_train[::step]
         
@@ -134,7 +134,7 @@ def run_segment_classifier(train_dir, test_dir, clf_type):
             "C": [0.001, 0.01, 0.1, 1.0, 10.0, 100.0],
             "gamma": ["scale", "auto", 0.001, 0.01]
         }
-        grid = GridSearchCV(base_clf, param_grid, cv=cv, scoring="f1", n_jobs=1, refit=False)
+        grid = GridSearchCV(base_clf, param_grid, cv=cv, scoring="f1", n_jobs=-1, refit=False)
         grid.fit(X_train_sub, y_train_sub)
         
         best_params = grid.best_params_
@@ -319,7 +319,7 @@ def run_clead_classifier(train_dir, test_dir, epochs=100, batch_size=32):
     class_weights = len(y_train) / (len(class_counts) * class_counts.float())
     class_weights = class_weights.to(device)
     
-    model = ContrastiveAlignmentNet(input_dim=768, proj_dim=256, num_classes=2).to(device)
+    model = ContrastiveAlignmentNet(input_dim=X_train.shape[1], proj_dim=256, num_classes=2).to(device)
     criterion_ce = nn.CrossEntropyLoss(weight=class_weights)
     criterion_supcon = SupConLoss(temperature=0.1)
     optimizer = optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-4)
@@ -369,6 +369,22 @@ def run_clead_classifier(train_dir, test_dir, epochs=100, batch_size=32):
     return acc, f1, auc, spk_str, spk_f1, spk_acc
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="Run Comprehensive Ablation Study")
+    parser.add_argument("--model", type=str, choices=["base-plus", "large"], default="base-plus",
+                        help="WavLM model variant (base-plus or large)")
+    args_cli = parser.parse_args()
+    
+    model_variant = args_cli.model
+    if model_variant == "large":
+        layers = [12, 14, 16, 18]
+        model_dir = "wavlm_large"
+        model_name = "microsoft/wavlm-large"
+    else:
+        layers = [6, 7, 8, 9]
+        model_dir = "wavlm_base_plus"
+        model_name = "microsoft/wavlm-base-plus"
+        
     configs = [
         {"name": "EN -> EN", "train": "edaic", "test": "edaic"},
         {"name": "EN -> ZH", "train": "edaic", "test": "modma"},
@@ -380,7 +396,7 @@ def main():
     
     results = []
     
-    for layer in [6, 7, 8, 9]:
+    for layer in layers:
         print(f"\n==========================================")
         print(f"RUNNING ABLATION FOR LAYER {layer}")
         print(f"==========================================")
@@ -390,8 +406,8 @@ def main():
             train_ds = cfg["train"]
             test_ds = cfg["test"]
             
-            train_dir = f"features/features_{train_ds}_layer{layer}"
-            test_dir = f"features/features_{test_ds}_layer{layer}"
+            train_dir = f"features/{model_dir}/features_{train_ds}_layer{layer}"
+            test_dir = f"features/{model_dir}/features_{test_ds}_layer{layer}"
             
             if not os.path.exists(os.path.join(train_dir, "X_train_mean.npy")):
                 print(f"Skipping {cfg_name} (no features)...")
@@ -450,7 +466,7 @@ def main():
                 
     # Compile results table
     df_res = pd.DataFrame(results)
-    df_res.to_csv("output/comprehensive_ablation_results.csv", index=False)
+    df_res.to_csv(f"output/comprehensive_ablation_results_{model_variant}.csv", index=False)
     
     # Text table summary
     table = []
@@ -476,9 +492,9 @@ def main():
     table_str = "\n".join(table)
     print("\n" + table_str)
     
-    with open("output/comprehensive_ablation_summary.txt", "w") as f:
+    with open(f"output/comprehensive_ablation_summary_{model_variant}.txt", "w") as f:
         f.write(table_str)
-    print("\nSaved comprehensive results to output/comprehensive_ablation_summary.txt")
+    print(f"\nSaved comprehensive results to output/comprehensive_ablation_summary_{model_variant}.txt")
 
     # Automatically update README.md with the newly obtained results
     try:
@@ -533,8 +549,9 @@ def main():
         readme.append("                             [Speaker Preds]")
         readme.append("```")
         readme.append("")
+        first_layer = layers[0]
         readme.append("## Component Overview")
-        readme.append("1. **Feature Extractor:** We use `microsoft/wavlm-base-plus` (Layer 6) to extract robust, noise-augmented speech representations.")
+        readme.append(f"1. **Feature Extractor:** We use `{model_name}` (Layer {first_layer}) to extract robust, noise-augmented speech representations.")
         readme.append("2. **CLeaD (Contrastive Alignment):** A dual-head architecture using Supervised Contrastive Loss (SupCon) to pull same-class representations together across English and Mandarin domains, mapping them to a shared clinical manifold.")
         readme.append("3. **Non-Linear Classifier (SVM-RBF):** Radial Basis Function kernel SVM is applied to standardized segment embeddings to capture non-linear decision boundaries.")
         readme.append("4. **Sequence Modeling (Bi-GRU):** Chronological sequence modeling groups segment embeddings per speaker and feeds them to a bidirectional GRU with self-attention pooling to capture temporal trajectories.")
@@ -576,11 +593,11 @@ def main():
         readme.append("")
         readme.append("Below are the segment-level and speaker-level evaluation scores obtained from the comprehensive ablation run:")
         readme.append("")
-        readme.append("### 1. Segment-Level Metrics (WavLM Layer 6)")
+        readme.append(f"### 1. Segment-Level Metrics (WavLM Layer {first_layer})")
         readme.append("| Configuration | Model | Accuracy | F1 Score | ROC AUC |")
         readme.append("| :--- | :--- | :---: | :---: | :---: |")
         
-        df_l6 = df_res[df_res["Layer"] == 6]
+        df_l6 = df_res[df_res["Layer"] == first_layer]
         for cfg_name, group in df_l6.groupby("Config", sort=False):
             first = True
             for _, row in group.iterrows():
@@ -594,7 +611,7 @@ def main():
         readme.append("| Configuration | Model | MDD Correct | HC Correct | Speaker Acc |")
         readme.append("| :--- | :--- | :---: | :---: | :---: |")
         
-        # Extract speaker level metrics for ZH->ZH and MIX->ZH on Layer 6
+        # Extract speaker level metrics for ZH->ZH and MIX->ZH on first layer
         for cfg_name in ["ZH -> ZH", "MIX -> ZH"]:
             df_cfg = df_l6[(df_l6["Config"] == cfg_name) & (df_l6["Model"].isin(["LR", "GRU", "CLeaD"]))]
             first = True
@@ -618,7 +635,7 @@ def main():
         readme.append("| :---: | :--- | :---: | :---: | :---: | :--- |")
         
         df_mix_zh = df_res[df_res["Config"] == "MIX -> ZH"]
-        for layer_val in [6, 7, 8, 9]:
+        for layer_val in layers:
             df_layer = df_mix_zh[(df_mix_zh["Layer"] == layer_val) & (df_mix_zh["Model"].isin(["LR", "GRU", "CLeaD"]))]
             first = True
             for _, row in df_layer.iterrows():
@@ -627,11 +644,12 @@ def main():
                 first = False
             readme.append("| | | | | | |")
             
-        with open("README.md", "w") as f_rm:
+        readme_file = f"README_{model_variant}.md"
+        with open(readme_file, "w") as f_rm:
             f_rm.write("\n".join(readme))
-        print("Successfully updated README.md with the pipeline structure and fresh metrics!")
+        print(f"Successfully updated {readme_file} with the pipeline structure and fresh metrics!")
     except Exception as e_rm:
-        print(f"Failed to auto-generate README.md: {e_rm}")
+        print(f"Failed to auto-generate README: {e_rm}")
 
 if __name__ == "__main__":
     main()

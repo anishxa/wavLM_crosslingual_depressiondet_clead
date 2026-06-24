@@ -18,6 +18,20 @@ from models import ContrastiveAlignmentNet, SupConLoss
 np.random.seed(42)
 torch.manual_seed(42)
 
+import argparse
+parser = argparse.ArgumentParser(description="Evaluate Speaker Level Metrics")
+parser.add_argument("--model", type=str, choices=["base-plus", "large"], default="base-plus",
+                    help="WavLM model variant (base-plus or large)")
+args_cli = parser.parse_args()
+
+model_variant = args_cli.model
+if model_variant == "large":
+    model_dir = "wavlm_large"
+    first_layer = 12
+else:
+    model_dir = "wavlm_base_plus"
+    first_layer = 6
+
 # Load test metadata to map segments back to speaker/participant IDs
 modma_metadata = pd.read_csv("utterance_table_modma_segmented_split.csv")
 modma_test_df = modma_metadata[modma_metadata["split"] == "test"].copy()
@@ -86,16 +100,16 @@ def evaluate_speaker_level(preds_segment, probs_segment, df_test, label_str):
 # ----------------- BASELINE LOGISTIC REGRESSION -----------------
 # 1. ZH -> ZH Baseline
 X_train_modma = np.concatenate([
-    np.load("features/features_modma_layer6/X_train.npy"),
-    np.load("features/features_modma_layer6/X_val.npy")
+    np.load(f"features/{model_dir}/features_modma_layer{first_layer}/X_train.npy"),
+    np.load(f"features/{model_dir}/features_modma_layer{first_layer}/X_val.npy")
 ], axis=0)
 y_train_modma = np.concatenate([
-    np.load("features/features_modma_layer6/y_train.npy"),
-    np.load("features/features_modma_layer6/y_val.npy")
+    np.load(f"features/{model_dir}/features_modma_layer{first_layer}/y_train.npy"),
+    np.load(f"features/{model_dir}/features_modma_layer{first_layer}/y_val.npy")
 ], axis=0)
 
-X_test_modma = np.load("features/features_modma_layer6/X_test.npy")
-y_test_modma = np.load("features/features_modma_layer6/y_test.npy")
+X_test_modma = np.load(f"features/{model_dir}/features_modma_layer{first_layer}/X_test.npy")
+y_test_modma = np.load(f"features/{model_dir}/features_modma_layer{first_layer}/y_test.npy")
 
 print("\n\nTraining ZH -> ZH Baseline Logistic Regression...")
 clf_zh = LogisticRegression(max_iter=1000, random_state=42, class_weight='balanced')
@@ -107,12 +121,12 @@ evaluate_speaker_level(preds_zh_lr, probs_zh_lr, modma_test_df, "ZH -> ZH Baseli
 
 # 2. MIX -> ZH Baseline
 X_train_mix = np.concatenate([
-    np.load("features/features_mix_layer6/X_train.npy"),
-    np.load("features/features_mix_layer6/X_val.npy")
+    np.load(f"features/{model_dir}/features_mix_layer{first_layer}/X_train.npy"),
+    np.load(f"features/{model_dir}/features_mix_layer{first_layer}/X_val.npy")
 ], axis=0)
 y_train_mix = np.concatenate([
-    np.load("features/features_mix_layer6/y_train.npy"),
-    np.load("features/features_mix_layer6/y_val.npy")
+    np.load(f"features/{model_dir}/features_mix_layer{first_layer}/y_train.npy"),
+    np.load(f"features/{model_dir}/features_mix_layer{first_layer}/y_val.npy")
 ], axis=0)
 
 print("\n\nTraining MIX -> ZH Baseline Logistic Regression...")
@@ -136,7 +150,7 @@ def train_clead(X_train, y_train, X_test, y_test, epochs=30, batch_size=32):
     class_weights = len(y_train) / (len(class_counts) * class_counts.float())
     class_weights = class_weights.to(device)
     
-    model = ContrastiveAlignmentNet(input_dim=768, proj_dim=128, num_classes=2).to(device)
+    model = ContrastiveAlignmentNet(input_dim=X_train.shape[1], proj_dim=128, num_classes=2).to(device)
     criterion_ce = nn.CrossEntropyLoss(weight=class_weights)
     criterion_supcon = SupConLoss(temperature=0.07)
     optimizer = optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-4)
@@ -154,6 +168,7 @@ def train_clead(X_train, y_train, X_test, y_test, epochs=30, batch_size=32):
             # aligning samples sharing the same class label.
             proj_unsqueezed = proj.unsqueeze(1)
             supcon_loss = criterion_supcon(proj_unsqueezed, labels=labels)
+            ce_loss = criterion_ce(logits, labels)
             loss = 0.5 * supcon_loss + 0.5 * ce_loss
             loss.backward()
             optimizer.step()
