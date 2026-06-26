@@ -13,32 +13,32 @@ graph TD
     classDef sequence fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px;
     classDef output fill:#ffebee,stroke:#c62828,stroke-width:2px;
 
-    Audio[Audio Input]:::input --> Seg[10s Sliding Segment Window]:::input
-    Seg --> Encoder[WavLM Large Encoder<br/>Frozen Middle Layers<br/>1024-d]:::encoder
-    Encoder --> Embeds[Segment Embeddings]:::encoder
+    Audio["Audio Input"]:::input --> Seg["10s Sliding Segment Window"]:::input
+    Seg --> Encoder["WavLM Large Encoder<br/>Frozen Middle Layers<br/>1024-d"]:::encoder
+    Encoder --> Embeds["Segment Embeddings"]:::encoder
 
-    Embeds --> |Static Segment Pooling| MeanPool[Mean Segment Pooling]:::static
-    Embeds --> |Temporal Sequence Modeling| SpkGroup[Group Segments by Speaker]:::sequence
+    Embeds --> |Static Segment Pooling| MeanPool["Mean Segment Pooling"]:::static
+    Embeds --> |Temporal Sequence Modeling| SpkGroup["Group Segments by Speaker"]:::sequence
 
     %% Static Branch
-    MeanPool --> CLeaD[CLeaD Alignment Head<br/>SupCon Loss]:::static
-    MeanPool --> ML_Classifiers[Segment Classifiers<br/>SVM-RBF, SVM-Linear, LR]:::static
+    MeanPool --> CLeaD["CLeaD Alignment Head<br/>SupCon Loss"]:::static
+    MeanPool --> ML_Classifiers["Segment Classifiers<br/>SVM-RBF, SVM-Linear, LR"]:::static
 
-    CLeaD --> Proj[Projection Head<br/>256-d]:::static
-    Proj --> LinClass[Linear Classifier Head]:::static
+    CLeaD --> Proj["Projection Head<br/>256-d"]:::static
+    Proj --> LinClass["Linear Classifier Head"]:::static
 
-    LinClass --> SegPreds[Segment Predictions]:::output
+    LinClass --> SegPreds["Segment Predictions"]:::output
     ML_Classifiers --> SegPreds
 
     %% Sequence Branch
-    SpkGroup --> Chrono[Chronological Sorting by Time]:::sequence
-    Chrono --> BiGRU[Bidirectional GRU]:::sequence
-    BiGRU --> SelfAttn[Self-Attention Pooling]:::sequence
-    SelfAttn --> LinSeqClass[Linear Classifier Head]:::sequence
-    LinSeqClass --> SpeakerPreds[Speaker-level Sequence Pred]:::output
+    SpkGroup --> Chrono["Chronological Sorting by Time"]:::sequence
+    Chrono --> BiGRU["Bidirectional GRU"]:::sequence
+    BiGRU --> SelfAttn["Self-Attention Pooling"]:::sequence
+    SelfAttn --> LinSeqClass["Linear Classifier Head"]:::sequence
+    LinSeqClass --> SpeakerPreds["Speaker-level Sequence Pred"]:::output
 
     %% Speaker Majority Vote
-    SegPreds --> |Speaker Majority Vote| Vote[Speaker Predictions]:::output
+    SegPreds --> |Speaker Majority Vote| Vote["Speaker Predictions"]:::output
 ```
 
 ## Component Overview
