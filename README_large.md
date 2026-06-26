@@ -3,49 +3,42 @@
 This repository contains the codebase for cross-lingual zero-shot depression detection from speech, specifically targeting the transfer gap between Germanic (English) and Tonal (Mandarin) languages.
 
 ## Pipeline Structure
-```
-                                AUDIO INPUT
-                                     |
-                                     v
-                        10s sliding segment window
-                                     |
-                                     v
-                  WavLM-Base-Plus Encoder (Frozen middle layers)
-                                     |
-                                     v
-                         Segment Embeddings (768-d)
-                                     |
-         +---------------------------+---------------------------+
-         v (Static Segment Pooling)                              v (Temporal Sequence Modeling)
-  +-----------------------------+                         +-----------------------------+
-  | Mean Segment Pooling        |                         |  Group Segments by Speaker  |
-  +-----------------------------+                         +-----------------------------+
-         |                                                               |
-         +--------------------------+                                    v
-         |                          |                             +-----------------------------+
-         v                          v                             | Chronological sort by time  |
-  +------------------+       +--------------+                     +-----------------------------+
-  | CLeaD Alignment  |       | SVM-RBF      |                                    |
-  | Head             |       | Classifier   |                                    v
-  +------------------+       +--------------+                     +-----------------------------+
-         |                          |                             |  Bidirectional GRU          |
-         v (SupCon Loss)            |                             +-----------------------------+
-  +------------------+              |                                    |
-  | Projection (256) |              |                                    v
-  +------------------+              |                             +-----------------------------+
-         |                          |                             |  Self-Attention Pooling     |
-         v                          v                             +-----------------------------+
-  +------------------+       +--------------+                                    |
-  | Linear Class.    |       | Support      |                                    v
-  | Head             |       | Vectors      |                     +-----------------------------+
-  +------------------+       +--------------+                     |  Linear Classifier Head     |
-         |                          |                             +-----------------------------+
-         +--------------------------+                                            |
-                                    |                                            v
-                             [Segment Preds]                       [Speaker-level Sequence Pred]
-                                    |
-                                    v (Speaker Majority Vote)
-                             [Speaker Preds]
+
+```mermaid
+graph TD
+    classDef default fill:#f9f9f9,stroke:#333,stroke-width:1px;
+    classDef input fill:#e1f5fe,stroke:#0288d1,stroke-width:2px;
+    classDef encoder fill:#e8f5e9,stroke:#388e3c,stroke-width:2px;
+    classDef static fill:#fff3e0,stroke:#f57c00,stroke-width:2px;
+    classDef sequence fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px;
+    classDef output fill:#ffebee,stroke:#c62828,stroke-width:2px;
+
+    Audio[Audio Input]:::input --> Seg[10s Sliding Segment Window]:::input
+    Seg --> Encoder[WavLM Large Encoder<br/>Frozen Middle Layers<br/>1024-d]:::encoder
+    Encoder --> Embeds[Segment Embeddings]:::encoder
+
+    Embeds --> |Static Segment Pooling| MeanPool[Mean Segment Pooling]:::static
+    Embeds --> |Temporal Sequence Modeling| SpkGroup[Group Segments by Speaker]:::sequence
+
+    %% Static Branch
+    MeanPool --> CLeaD[CLeaD Alignment Head<br/>SupCon Loss]:::static
+    MeanPool --> ML_Classifiers[Segment Classifiers<br/>SVM-RBF, SVM-Linear, LR]:::static
+
+    CLeaD --> Proj[Projection Head<br/>256-d]:::static
+    Proj --> LinClass[Linear Classifier Head]:::static
+
+    LinClass --> SegPreds[Segment Predictions]:::output
+    ML_Classifiers --> SegPreds
+
+    %% Sequence Branch
+    SpkGroup --> Chrono[Chronological Sorting by Time]:::sequence
+    Chrono --> BiGRU[Bidirectional GRU]:::sequence
+    BiGRU --> SelfAttn[Self-Attention Pooling]:::sequence
+    SelfAttn --> LinSeqClass[Linear Classifier Head]:::sequence
+    LinSeqClass --> SpeakerPreds[Speaker-level Sequence Pred]:::output
+
+    %% Speaker Majority Vote
+    SegPreds --> |Speaker Majority Vote| Vote[Speaker Predictions]:::output
 ```
 
 ## Component Overview
