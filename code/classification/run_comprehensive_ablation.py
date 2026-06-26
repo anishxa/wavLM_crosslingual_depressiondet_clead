@@ -22,7 +22,7 @@ np.random.seed(42)
 torch.manual_seed(42)
 
 # Path to MODMA metadata to map segments back to speaker/participant IDs
-modma_metadata = pd.read_csv("utterance_table_modma_segmented_split.csv")
+modma_metadata = pd.read_csv("data/utterance_table_modma_segmented_split.csv")
 modma_test_df = modma_metadata[modma_metadata["split"] == "test"].copy()
 modma_test_df["speaker_id"] = modma_test_df["file_path"].apply(lambda x: re.search(r'\d+', os.path.basename(x)).group())
 
@@ -40,11 +40,11 @@ def parse_path(path):
 
 def get_metadata_path(feature_dir):
     if "edaic" in feature_dir:
-        return "utterance_table_edaic_segmented_split.csv"
+        return "data/utterance_table_edaic_segmented_split.csv"
     elif "modma" in feature_dir:
-        return "utterance_table_modma_segmented_split.csv"
+        return "data/utterance_table_modma_segmented_split.csv"
     elif "mix" in feature_dir:
-        return "utterance_table_mix_segmented_split.csv"
+        return "data/utterance_table_mix_segmented_split.csv"
     raise ValueError(f"Could not determine metadata path from directory name: {feature_dir}")
 
 def evaluate_speaker_level(preds_segment, probs_segment, df_test):
@@ -76,7 +76,10 @@ def evaluate_speaker_level(preds_segment, probs_segment, df_test):
     num_correct_mdd = int(df_spk[(df_spk["true_label"] == 1) & (df_spk["maj_vote"] == 1)].shape[0])
     num_correct_hc = int(df_spk[(df_spk["true_label"] == 0) & (df_spk["maj_vote"] == 0)].shape[0])
     
-    return f"{num_correct_mdd}/5 MDD, {num_correct_hc}/5 HC", f1_maj, acc_maj
+    total_mdd = int(df_spk[df_spk["true_label"] == 1].shape[0])
+    total_hc = int(df_spk[df_spk["true_label"] == 0].shape[0])
+    
+    return f"{num_correct_mdd}/{total_mdd} MDD, {num_correct_hc}/{total_hc} HC", f1_maj, acc_maj
 
 def run_segment_classifier(train_dir, test_dir, clf_type):
     # Load features
@@ -92,11 +95,10 @@ def run_segment_classifier(train_dir, test_dir, clf_type):
     X_test = np.load(os.path.join(test_dir, "X_test_mean.npy"))
     y_test = np.load(os.path.join(test_dir, "y_test.npy"))
     
-    if clf_type != "lr":
-        # Scale features for numerical stability and faster SVM convergence
-        scaler = StandardScaler()
-        X_train = scaler.fit_transform(X_train)
-        X_test = scaler.transform(X_test)
+    # Scale features for numerical stability and faster convergence for both SVM and LR
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(X_train)
+    X_test = scaler.transform(X_test)
     
     if clf_type == "lr":
         clf = LogisticRegression(max_iter=1000, random_state=42, class_weight='balanced')
@@ -154,7 +156,7 @@ def run_segment_classifier(train_dir, test_dir, clf_type):
     if "modma" in test_dir:
         spk_str, spk_f1, spk_acc = evaluate_speaker_level(preds, probs, modma_test_df)
         
-    return acc, f1, auc, spk_str, spk_f1, spk_acc
+    return acc, f1, auc, spk_str, spk_f1, spk_acc, preds, probs, y_test
 
 def build_sequences(feature_dir, split, max_len=150):
     metadata_csv = get_metadata_path(feature_dir)
@@ -291,7 +293,7 @@ def run_gru_classifier(train_dir, test_dir, epochs=100, batch_size=16, lr=1e-3, 
         num_correct_hc = int(all_labels[(all_labels == 0) & (all_preds == 0)].shape[0])
         spk_str = f"{num_correct_mdd}/5 MDD, {num_correct_hc}/5 HC"
         
-    return acc, f1, auc, spk_str, f1, acc
+    return acc, f1, auc, spk_str, f1, acc, all_preds, all_probs, all_labels
 
 def run_clead_classifier(train_dir, test_dir, epochs=100, batch_size=32):
     # Reset random seeds inside the function to ensure reproducible initializations
@@ -366,7 +368,15 @@ def run_clead_classifier(train_dir, test_dir, epochs=100, batch_size=32):
     if "modma" in test_dir:
         spk_str, spk_f1, spk_acc = evaluate_speaker_level(preds, probs, modma_test_df)
         
-    return acc, f1, auc, spk_str, spk_f1, spk_acc
+    return acc, f1, auc, spk_str, spk_f1, spk_acc, preds, probs, y_test
+
+def save_predictions(model_variant, layer, cfg_name, clf_name, preds, probs, y_true):
+    cfg_safe = cfg_name.replace(" -> ", "_to_")
+    out_dir = f"predictions/{model_variant}/layer{layer}/{cfg_safe}/{clf_name}"
+    os.makedirs(out_dir, exist_ok=True)
+    np.save(os.path.join(out_dir, "preds.npy"), preds)
+    np.save(os.path.join(out_dir, "probs.npy"), probs)
+    np.save(os.path.join(out_dir, "y_true.npy"), y_true)
 
 def main():
     import argparse
@@ -415,7 +425,8 @@ def main():
                 
             # 1. Logistic Regression (Baseline)
             print(f"  Running LR for {cfg_name}...")
-            acc_lr, f1_lr, auc_lr, spk_lr, spk_f1_lr, spk_acc_lr = run_segment_classifier(train_dir, test_dir, "lr")
+            acc_lr, f1_lr, auc_lr, spk_lr, spk_f1_lr, spk_acc_lr, p_lr, pr_lr, y_lr = run_segment_classifier(train_dir, test_dir, "lr")
+            save_predictions(model_variant, layer, cfg_name, "LR", p_lr, pr_lr, y_lr)
             results.append({
                 "Layer": layer, "Config": cfg_name, "Model": "LR",
                 "Acc": acc_lr, "F1": f1_lr, "AUC": auc_lr,
@@ -424,7 +435,8 @@ def main():
             
             # 2. SVM-Linear
             print(f"  Running SVM-Linear for {cfg_name}...")
-            acc_svl, f1_svl, auc_svl, spk_svl, spk_f1_svl, spk_acc_svl = run_segment_classifier(train_dir, test_dir, "svm_linear")
+            acc_svl, f1_svl, auc_svl, spk_svl, spk_f1_svl, spk_acc_svl, p_svl, pr_svl, y_svl = run_segment_classifier(train_dir, test_dir, "svm_linear")
+            save_predictions(model_variant, layer, cfg_name, "SVM-Linear", p_svl, pr_svl, y_svl)
             results.append({
                 "Layer": layer, "Config": cfg_name, "Model": "SVM-Linear",
                 "Acc": acc_svl, "F1": f1_svl, "AUC": auc_svl,
@@ -433,7 +445,8 @@ def main():
             
             # 3. SVM-RBF
             print(f"  Running SVM-RBF for {cfg_name}...")
-            acc_svr, f1_svr, auc_svr, spk_svr, spk_f1_svr, spk_acc_svr = run_segment_classifier(train_dir, test_dir, "svm_rbf")
+            acc_svr, f1_svr, auc_svr, spk_svr, spk_f1_svr, spk_acc_svr, p_svr, pr_svr, y_svr = run_segment_classifier(train_dir, test_dir, "svm_rbf")
+            save_predictions(model_variant, layer, cfg_name, "SVM-RBF", p_svr, pr_svr, y_svr)
             results.append({
                 "Layer": layer, "Config": cfg_name, "Model": "SVM-RBF",
                 "Acc": acc_svr, "F1": f1_svr, "AUC": auc_svr,
@@ -443,7 +456,8 @@ def main():
             # 4. GRU Sequence Model
             print(f"  Running GRU Sequence Classifier for {cfg_name}...")
             try:
-                acc_gru, f1_gru, auc_gru, spk_gru, spk_f1_gru, spk_acc_gru = run_gru_classifier(train_dir, test_dir)
+                acc_gru, f1_gru, auc_gru, spk_gru, spk_f1_gru, spk_acc_gru, p_gru, pr_gru, y_gru = run_gru_classifier(train_dir, test_dir)
+                save_predictions(model_variant, layer, cfg_name, "GRU", p_gru, pr_gru, y_gru)
                 results.append({
                     "Layer": layer, "Config": cfg_name, "Model": "GRU",
                     "Acc": acc_gru, "F1": f1_gru, "AUC": auc_gru,
@@ -455,7 +469,8 @@ def main():
             # 5. CLeaD Representation Model
             print(f"  Running CLeaD for {cfg_name}...")
             try:
-                acc_cld, f1_cld, auc_cld, spk_cld, spk_f1_cld, spk_acc_cld = run_clead_classifier(train_dir, test_dir)
+                acc_cld, f1_cld, auc_cld, spk_cld, spk_f1_cld, spk_acc_cld, p_cld, pr_cld, y_cld = run_clead_classifier(train_dir, test_dir)
+                save_predictions(model_variant, layer, cfg_name, "CLeaD", p_cld, pr_cld, y_cld)
                 results.append({
                     "Layer": layer, "Config": cfg_name, "Model": "CLeaD",
                     "Acc": acc_cld, "F1": f1_cld, "AUC": auc_cld,
@@ -567,11 +582,11 @@ def main():
         readme.append("```bash")
         readme.append("# 1. Segment and split EDAIC")
         readme.append("python3 code/preprocessing/segment_edaic_sliding.py")
-        readme.append("python3 code/preprocessing/split_metadata.py --input_csv utterance_table_edaic_segmented.csv")
+        readme.append("python3 code/preprocessing/split_metadata.py --input_csv data/utterance_table_edaic_segmented.csv")
         readme.append("")
         readme.append("# 2. Segment and split MODMA")
         readme.append("python3 code/preprocessing/segment_modma_sliding.py")
-        readme.append("python3 code/preprocessing/split_metadata.py --input_csv utterance_table_modma_segmented.csv")
+        readme.append("python3 code/preprocessing/split_metadata.py --input_csv data/utterance_table_modma_segmented.csv")
         readme.append("")
         readme.append("# 3. Combine them to create the MIX dataset metadata")
         readme.append("python3 code/preprocessing/build_mixed_metadata.py")
@@ -580,13 +595,13 @@ def main():
         readme.append("### 2. Feature Extraction")
         readme.append("To extract the mean pooling features across multiple layers:")
         readme.append("```bash")
-        readme.append("python3 extract_ablation_features.py")
+        readme.append("python3 code/feature_extraction/extract_ablation_features.py")
         readme.append("```")
         readme.append("")
         readme.append("### 3. Run Comprehensive Multi-Model Ablation Study")
         readme.append("To train and evaluate LR, SVM-Linear, SVM-RBF, Bi-GRU, and CLeaD across all configurations and layers:")
         readme.append("```bash")
-        readme.append("python3 run_comprehensive_ablation.py")
+        readme.append("python3 code/classification/run_comprehensive_ablation.py")
         readme.append("```")
         readme.append("")
         readme.append("## Results")

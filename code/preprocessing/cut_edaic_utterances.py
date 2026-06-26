@@ -80,7 +80,7 @@ for pid in valid_ids:
         print(f"error with {pid}: {e}")
 
 # write utterance_table.csv
-with open("utterance_table.csv", "w", newline="") as csvfile:
+with open("data/utterance_table.csv", "w", newline="") as csvfile:
     writer = csv.DictWriter(csvfile, fieldnames=["file_path", "label"])
     writer.writeheader()
     writer.writerows(metadata)

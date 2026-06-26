@@ -33,7 +33,7 @@ else:
     first_layer = 6
 
 # Load test metadata to map segments back to speaker/participant IDs
-modma_metadata = pd.read_csv("utterance_table_modma_segmented_split.csv")
+modma_metadata = pd.read_csv("data/utterance_table_modma_segmented_split.csv")
 modma_test_df = modma_metadata[modma_metadata["split"] == "test"].copy()
 modma_test_df["speaker_id"] = modma_test_df["file_path"].apply(lambda x: re.search(r'\d+', os.path.basename(x)).group())
 
@@ -82,6 +82,19 @@ def evaluate_speaker_level(preds_segment, probs_segment, df_test, label_str):
     f1_maj = f1_score(df_spk["true_label"], df_spk["maj_vote"], zero_division=0)
     
     acc_prob = accuracy_score(df_spk["true_label"], df_spk["prob_vote"])
+    num_correct_mdd = int(df_spk[(df_spk["true_label"] == 1) & (df_spk["maj_vote"] == 1)].shape[0])
+    num_correct_hc = int(df_spk[(df_spk["true_label"] == 0) & (df_spk["maj_vote"] == 0)].shape[0])
+    
+    total_mdd = int(df_spk[df_spk["true_label"] == 1].shape[0])
+    total_hc = int(df_spk[df_spk["true_label"] == 0].shape[0])
+    
+    # Print results
+    print(f"\n[{label_str}] Speaker-Level Performance:")
+    print(f"  - Accuracy: {acc_maj:.4f}")
+    print(f"  - F1-Score: {f1_maj:.4f}")
+    print(f"  - Correctly predicted MDD: {num_correct_mdd}/{total_mdd}")
+    print(f"  - Correctly predicted HC : {num_correct_hc}/{total_hc}")
+    
     f1_prob = f1_score(df_spk["true_label"], df_spk["prob_vote"], zero_division=0)
     
     try:

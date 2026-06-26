@@ -26,7 +26,7 @@ from tqdm import tqdm
 import pandas as pd
 
 # parameters
-source_csv = "utterance_table_modma_balanced.csv"
+source_csv = "data/utterance_table_modma_balanced.csv"
 output_dir = "modma_segments"
 window_length = 3.0  # seconds
 stride = 1.5         # seconds (50% overlap)
@@ -73,5 +73,5 @@ for idx, row in tqdm(df.iterrows(), total=len(df)):
 
 # save new metadata
 seg_df = pd.DataFrame(segments)
-seg_df.to_csv("utterance_table_modma_segmented.csv", index=False)
+seg_df.to_csv("data/utterance_table_modma_segmented.csv", index=False)
 print(f"done! total segments: {len(seg_df)}")

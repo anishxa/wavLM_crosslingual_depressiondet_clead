@@ -24,9 +24,9 @@ import pandas as pd
 import os
 
 # source file paths
-modma_path = "utterance_table_modma_segmented_split.csv"
-edaic_path = "utterance_table_edaic_segmented_split.csv"
-out_path = "utterance_table_mix_segmented_split.csv"
+modma_path = "data/utterance_table_modma_segmented_split.csv"
+edaic_path = "data/utterance_table_edaic_segmented_split.csv"
+out_path = "data/utterance_table_mix_segmented_split.csv"
 
 # load data
 df_modma = pd.read_csv(modma_path)

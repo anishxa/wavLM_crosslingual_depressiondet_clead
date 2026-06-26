@@ -21,7 +21,7 @@ Output:
 import pandas as pd
 
 # load the updated CSV
-df = pd.read_csv("utterance_table_modma_updated.csv")
+df = pd.read_csv("data/utterance_table_modma_updated.csv")
 
 # separate the two classes
 df_0 = df[df["label"] == 0]  # HC
@@ -38,6 +38,6 @@ df_1_sampled = df_1.sample(n=min_count, random_state=42)
 df_balanced = pd.concat([df_0_sampled, df_1_sampled]).sample(frac=1, random_state=42)
 
 # save balanced table
-df_balanced.to_csv("utterance_table_modma_balanced.csv", index=False)
+df_balanced.to_csv("data/utterance_table_modma_balanced.csv", index=False)
 
 print(f"balanced set created: {min_count} samples per class, total {len(df_balanced)}")

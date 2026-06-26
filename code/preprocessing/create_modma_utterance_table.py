@@ -30,7 +30,7 @@ import torchaudio
 
 # set paths and output file
 root_dir = "/scratch/s5944562/WavLM/datasets/modma"
-output_csv = "utterance_table_modma_updated.csv"
+output_csv = "data/utterance_table_modma_updated.csv"
 data = []
 
 # duration filter (seconds)

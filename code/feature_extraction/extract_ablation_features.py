@@ -62,17 +62,17 @@ class SpeechDataset(torch.utils.data.Dataset):
                 waveform = torchaudio.transforms.Resample(sr, 16000)(waveform)
             waveform = waveform.squeeze(0)
             
-            # Standardize length to exactly 48000 samples (3.0 seconds at 16kHz)
-            if waveform.shape[0] < 48000:
-                pad_len = 48000 - waveform.shape[0]
+            # Standardize length to exactly 160000 samples (10.0 seconds at 16kHz)
+            if waveform.shape[0] < 160000:
+                pad_len = 160000 - waveform.shape[0]
                 waveform = torch.cat([waveform, torch.zeros(pad_len)], dim=0)
-            elif waveform.shape[0] > 48000:
-                waveform = waveform[:48000]
+            elif waveform.shape[0] > 160000:
+                waveform = waveform[:160000]
                 
             return waveform, label, path
         except Exception as e:
             # Return silence on error so we don't crash
-            return torch.zeros(48000), label, path
+            return torch.zeros(160000), label, path
 
 def extract_for_dataset(metadata_csv, dataset_name, batch_size=32):
     if not os.path.exists(metadata_csv):
@@ -150,8 +150,8 @@ def extract_for_dataset(metadata_csv, dataset_name, batch_size=32):
 
 if __name__ == "__main__":
     # Run extraction on all three datasets
-    extract_for_dataset("utterance_table_modma_segmented_split.csv", "modma", batch_size=args.batch_size)
-    extract_for_dataset("utterance_table_mix_segmented_split.csv", "mix", batch_size=args.batch_size)
-    extract_for_dataset("utterance_table_edaic_segmented_split.csv", "edaic", batch_size=args.batch_size)
+    extract_for_dataset("data/utterance_table_modma_segmented_split.csv", "modma", batch_size=args.batch_size)
+    extract_for_dataset("data/utterance_table_mix_segmented_split.csv", "mix", batch_size=args.batch_size)
+    extract_for_dataset("data/utterance_table_edaic_segmented_split.csv", "edaic", batch_size=args.batch_size)
 
     print("\nAll feature extractions completed successfully!")

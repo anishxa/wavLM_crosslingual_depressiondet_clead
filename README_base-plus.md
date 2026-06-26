@@ -1,4 +1,4 @@
-# Multi-Layer WavLM BASE-PLUS Ablation for Cross-Lingual Depression Detection
+# Multi-Layer WavLM Ablation for Cross-Lingual Depression Detection: Contrastive Representation Alignment and Chronological Sequence Classifiers
 
 This repository contains the codebase for cross-lingual zero-shot depression detection from speech, specifically targeting the transfer gap between Germanic (English) and Tonal (Mandarin) languages.
 
@@ -65,11 +65,11 @@ To segment the audio datasets into 10-second sliding windows and create the MIX 
 ```bash
 # 1. Segment and split EDAIC
 python3 code/preprocessing/segment_edaic_sliding.py
-python3 code/preprocessing/split_metadata.py --input_csv utterance_table_edaic_segmented.csv
+python3 code/preprocessing/split_metadata.py --input_csv data/utterance_table_edaic_segmented.csv
 
 # 2. Segment and split MODMA
 python3 code/preprocessing/segment_modma_sliding.py
-python3 code/preprocessing/split_metadata.py --input_csv utterance_table_modma_segmented.csv
+python3 code/preprocessing/split_metadata.py --input_csv data/utterance_table_modma_segmented.csv
 
 # 3. Combine them to create the MIX dataset metadata
 python3 code/preprocessing/build_mixed_metadata.py
@@ -78,13 +78,13 @@ python3 code/preprocessing/build_mixed_metadata.py
 ### 2. Feature Extraction
 To extract the mean pooling features across multiple layers:
 ```bash
-python3 extract_ablation_features.py --model base-plus
+python3 code/feature_extraction/extract_ablation_features.py
 ```
 
 ### 3. Run Comprehensive Multi-Model Ablation Study
 To train and evaluate LR, SVM-Linear, SVM-RBF, Bi-GRU, and CLeaD across all configurations and layers:
 ```bash
-python3 run_comprehensive_ablation.py --model base-plus
+python3 code/classification/run_comprehensive_ablation.py
 ```
 
 ## Results
@@ -94,71 +94,71 @@ Below are the segment-level and speaker-level evaluation scores obtained from th
 ### 1. Segment-Level Metrics (WavLM Layer 6)
 | Configuration | Model | Accuracy | F1 Score | ROC AUC |
 | :--- | :--- | :---: | :---: | :---: |
-| **EN -> EN** | LR | 73.79% | 0.6628 | 0.8043 |
-|  | SVM-Linear | 72.85% | 0.6476 | 0.7900 |
-|  | SVM-RBF | 72.47% | 0.5581 | 0.7583 |
-|  | GRU | 47.83% | 0.3333 | 0.5980 |
-|  | CLeaD | 72.42% | 0.5929 | 0.7537 |
+| **EN -> EN** | LR | 71.47% | 0.6384 | 0.7849 |
+|  | SVM-Linear | 72.30% | 0.6591 | 0.7956 |
+|  | SVM-RBF | 68.54% | 0.5508 | 0.7252 |
+|  | GRU | 69.57% | 0.5882 | 0.6667 |
+|  | CLeaD | 70.70% | 0.6366 | 0.7751 |
 | | | | | |
-| **EN -> ZH** | LR | 49.58% | 0.2545 | 0.4807 |
-|  | SVM-Linear | 49.50% | 0.1913 | 0.5139 |
-|  | SVM-RBF | 48.91% | 0.2245 | 0.5385 |
-|  | GRU | 30.00% | 0.4615 | 0.4000 |
-|  | CLeaD | 49.42% | 0.2744 | 0.5278 |
+| **EN -> ZH** | LR | 49.79% | 0.2134 | 0.4997 |
+|  | SVM-Linear | 49.46% | 0.2361 | 0.4841 |
+|  | SVM-RBF | 49.00% | 0.2004 | 0.4954 |
+|  | GRU | 50.00% | 0.5455 | 0.3600 |
+|  | CLeaD | 49.08% | 0.3321 | 0.4695 |
 | | | | | |
-| **ZH -> EN** | LR | 54.32% | 0.4217 | 0.5357 |
-|  | SVM-Linear | 54.30% | 0.4100 | 0.5343 |
-|  | SVM-RBF | 54.21% | 0.2955 | 0.5193 |
-|  | GRU | 69.57% | 0.0000 | 0.4020 |
-|  | CLeaD | 52.55% | 0.3304 | 0.5109 |
+| **ZH -> EN** | LR | 56.32% | 0.4080 | 0.5775 |
+|  | SVM-Linear | 57.10% | 0.4197 | 0.5915 |
+|  | SVM-RBF | 55.17% | 0.3696 | 0.5757 |
+|  | GRU | 60.87% | 0.1818 | 0.5784 |
+|  | CLeaD | 60.91% | 0.5045 | 0.6477 |
 | | | | | |
-| **ZH -> ZH** | LR | 53.63% | 0.4411 | 0.5368 |
-|  | SVM-Linear | 55.39% | 0.4660 | 0.5613 |
-|  | SVM-RBF | 54.76% | 0.4494 | 0.5606 |
-|  | GRU | 80.00% | 0.7500 | 0.8000 |
-|  | CLeaD | 55.26% | 0.4637 | 0.5816 |
+| **ZH -> ZH** | LR | 53.93% | 0.4633 | 0.5383 |
+|  | SVM-Linear | 54.85% | 0.4760 | 0.5432 |
+|  | SVM-RBF | 53.93% | 0.4558 | 0.5327 |
+|  | GRU | 50.00% | 0.2857 | 0.4800 |
+|  | CLeaD | 57.31% | 0.5152 | 0.5851 |
 | | | | | |
-| **MIX -> EN** | LR | 66.95% | 0.5453 | 0.7023 |
-|  | SVM-Linear | 66.29% | 0.5375 | 0.7001 |
-|  | SVM-RBF | 69.83% | 0.5139 | 0.7254 |
-|  | GRU | 47.83% | 0.4000 | 0.6373 |
-|  | CLeaD | 65.73% | 0.4981 | 0.6732 |
+| **MIX -> EN** | LR | 67.40% | 0.5673 | 0.7224 |
+|  | SVM-Linear | 69.35% | 0.5963 | 0.7474 |
+|  | SVM-RBF | 66.24% | 0.4816 | 0.6950 |
+|  | GRU | 60.87% | 0.4000 | 0.5392 |
+|  | CLeaD | 62.12% | 0.4911 | 0.6425 |
 | | | | | |
-| **MIX -> ZH** | LR | 50.38% | 0.4272 | 0.4809 |
-|  | SVM-Linear | 51.63% | 0.4411 | 0.5009 |
-|  | SVM-RBF | 54.64% | 0.4419 | 0.5668 |
-|  | GRU | 70.00% | 0.5714 | 0.6400 |
-|  | CLeaD | 55.43% | 0.5007 | 0.5746 |
+| **MIX -> ZH** | LR | 51.55% | 0.4669 | 0.5033 |
+|  | SVM-Linear | 52.46% | 0.4865 | 0.5153 |
+|  | SVM-RBF | 52.21% | 0.4348 | 0.5365 |
+|  | GRU | 60.00% | 0.3333 | 0.8000 |
+|  | CLeaD | 52.80% | 0.4882 | 0.5210 |
 | | | | | |
 
 ### 2. Speaker-Level Majority Vote Metrics (MODMA Test Set)
 | Configuration | Model | MDD Correct | HC Correct | Speaker Acc |
 | :--- | :--- | :---: | :---: | :---: |
-| **ZH -> ZH** | LR | 1/5 | 5/5 | 60.00% |
-|  | GRU | 3/5 | 5/5 | 80.00% |
-|  | CLeaD | 2/5 | 5/5 | 70.00% |
+| **ZH -> ZH** | LR | 2/5 | 5/5 | 70.00% |
+|  | GRU | 1/5 | 4/5 | 50.00% |
+|  | CLeaD | 3/5 | 4/5 | 70.00% |
 | | | | | |
-| **MIX -> ZH** | LR | 2/5 | 4/5 | 60.00% |
-|  | GRU | 2/5 | 5/5 | 70.00% |
-|  | CLeaD | 4/5 | 5/5 | 90.00% |
+| **MIX -> ZH** | LR | 3/5 | 5/5 | 80.00% |
+|  | GRU | 1/5 | 5/5 | 60.00% |
+|  | CLeaD | 3/5 | 4/5 | 70.00% |
 | | | | | |
 
 ### 3. WavLM Layer Ablation Study (MIX -> ZH Transfer)
 | WavLM Layer | Model | Segment Accuracy | Segment F1 | Segment AUC | Speaker Vote (MDD/HC) |
 | :---: | :--- | :---: | :---: | :---: | :--- |
-| **Layer 6** | LR | 50.38% | 0.4272 | 0.4809 | 2/5 MDD, 4/5 HC |
-|  | GRU | 70.00% | 0.5714 | 0.6400 | 2/5 MDD, 5/5 HC |
-|  | CLeaD | 55.43% | 0.5007 | 0.5746 | 4/5 MDD, 5/5 HC |
+| **Layer 6** | LR | 51.55% | 0.4669 | 0.5033 | 3/5 MDD, 5/5 HC |
+|  | GRU | 60.00% | 0.3333 | 0.8000 | 1/5 MDD, 5/5 HC |
+|  | CLeaD | 52.80% | 0.4882 | 0.5210 | 3/5 MDD, 4/5 HC |
 | | | | | | |
-| **Layer 7** | LR | 47.20% | 0.4352 | 0.4570 | 3/5 MDD, 4/5 HC |
-|  | GRU | 80.00% | 0.7500 | 0.6000 | 3/5 MDD, 5/5 HC |
-|  | CLeaD | 52.55% | 0.4915 | 0.5271 | 3/5 MDD, 5/5 HC |
+| **Layer 7** | LR | 54.72% | 0.5311 | 0.5436 | 4/5 MDD, 5/5 HC |
+|  | GRU | 70.00% | 0.5714 | 0.8000 | 2/5 MDD, 5/5 HC |
+|  | CLeaD | 53.17% | 0.4860 | 0.5388 | 4/5 MDD, 4/5 HC |
 | | | | | | |
-| **Layer 8** | LR | 46.16% | 0.4339 | 0.4513 | 2/5 MDD, 3/5 HC |
-|  | GRU | 80.00% | 0.7500 | 0.6000 | 3/5 MDD, 5/5 HC |
-|  | CLeaD | 49.96% | 0.4418 | 0.5123 | 2/5 MDD, 5/5 HC |
+| **Layer 8** | LR | 50.13% | 0.4726 | 0.5012 | 3/5 MDD, 4/5 HC |
+|  | GRU | 70.00% | 0.5714 | 0.6000 | 2/5 MDD, 5/5 HC |
+|  | CLeaD | 52.55% | 0.5614 | 0.5166 | 4/5 MDD, 3/5 HC |
 | | | | | | |
-| **Layer 9** | LR | 46.20% | 0.4415 | 0.4476 | 2/5 MDD, 3/5 HC |
-|  | GRU | 50.00% | 0.0000 | 0.6000 | 0/5 MDD, 5/5 HC |
-|  | CLeaD | 51.29% | 0.4661 | 0.5123 | 3/5 MDD, 5/5 HC |
+| **Layer 9** | LR | 50.00% | 0.4591 | 0.4921 | 2/5 MDD, 4/5 HC |
+|  | GRU | 70.00% | 0.7273 | 0.7200 | 4/5 MDD, 3/5 HC |
+|  | CLeaD | 50.88% | 0.4545 | 0.5048 | 2/5 MDD, 4/5 HC |
 | | | | | | |

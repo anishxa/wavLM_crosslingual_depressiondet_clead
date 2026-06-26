@@ -19,7 +19,7 @@ device = torch.device("cpu")
 print(f"Using device for CLeaD training: {device}")
 
 # Path to datasets
-metadata_modma_path = "utterance_table_modma_segmented_split.csv"
+metadata_modma_path = "data/utterance_table_modma_segmented_split.csv"
 
 # Load metadata to map segments back to speaker/participant IDs for MODMA speaker evaluation
 modma_metadata = pd.read_csv(metadata_modma_path)
@@ -63,7 +63,10 @@ def evaluate_speaker_level(preds_segment, probs_segment, df_test):
     num_correct_mdd = int(df_spk[(df_spk["true_label"] == 1) & (df_spk["maj_vote"] == 1)].shape[0])
     num_correct_hc = int(df_spk[(df_spk["true_label"] == 0) & (df_spk["maj_vote"] == 0)].shape[0])
     
-    return f"{num_correct_mdd}/5 MDD, {num_correct_hc}/5 HC", f1_maj, acc_maj, auc_spk
+    total_mdd = int(df_spk[df_spk["true_label"] == 1].shape[0])
+    total_hc = int(df_spk[df_spk["true_label"] == 0].shape[0])
+    
+    return f"{num_correct_mdd}/{total_mdd} MDD, {num_correct_hc}/{total_hc} HC", f1_maj, acc_maj, auc_spk
 
 def run_baseline(train_dir, test_dir, exp_name):
     # Train Logistic Regression

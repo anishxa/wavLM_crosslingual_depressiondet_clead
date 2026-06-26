@@ -68,11 +68,11 @@ To segment the audio datasets into 10-second sliding windows and build mixed dom
 ```bash
 # 1. Segment and split EDAIC
 python3 code/preprocessing/segment_edaic_sliding.py
-python3 code/preprocessing/split_metadata.py --input_csv utterance_table_edaic_segmented.csv
+python3 code/preprocessing/split_metadata.py --input_csv data/utterance_table_edaic_segmented.csv
 
 # 2. Segment and split MODMA
 python3 code/preprocessing/segment_modma_sliding.py
-python3 code/preprocessing/split_metadata.py --input_csv utterance_table_modma_segmented.csv
+python3 code/preprocessing/split_metadata.py --input_csv data/utterance_table_modma_segmented.csv
 
 # 3. Combine them to create the MIX dataset metadata
 python3 code/preprocessing/build_mixed_metadata.py
@@ -82,26 +82,26 @@ python3 code/preprocessing/build_mixed_metadata.py
 Extract pooling features for a specific model variant:
 ```bash
 # Extract WavLM Base-Plus features (Layers 6, 7, 8, 9)
-python3 extract_ablation_features.py --model base-plus --device auto
+python3 code/feature_extraction/extract_ablation_features.py --model base-plus --device auto
 
 # Extract WavLM Large features (Layers 12, 14, 16, 18)
-python3 extract_ablation_features.py --model large --device auto
+python3 code/feature_extraction/extract_ablation_features.py --model large --device auto
 ```
 
 ### 3. Downstream Ablation Study
 Train and evaluate LR, SVM-Linear, SVM-RBF, Bi-GRU, and CLeaD classifiers:
 ```bash
 # Run ablation study on Base-Plus features
-python3 run_comprehensive_ablation.py --model base-plus
+python3 code/classification/run_comprehensive_ablation.py --model base-plus
 
 # Run ablation study on Large features
-python3 run_comprehensive_ablation.py --model large
+python3 code/classification/run_comprehensive_ablation.py --model large
 ```
 
 ### 4. Generate Performance Comparison
 To compile a side-by-side comparison report of both model variants:
 ```bash
-python3 compare_results.py
+python3 code/classification/compare_results.py
 ```
 
 ---

@@ -20,7 +20,7 @@ Output:
 import pandas as pd
 
 # read metadata
-df = pd.read_csv("utterance_table.csv")
+df = pd.read_csv("data/utterance_table.csv")
 
 # separate classes
 df_0 = df[df["label"] == 0]
@@ -33,4 +33,4 @@ df_0_sampled = df_0.sample(n=len(df_1), random_state=42)
 df_balanced = pd.concat([df_0_sampled, df_1]).sample(frac=1, random_state=42)
 
 # save balanced table
-df_balanced.to_csv("utterance_table_balanced.csv", index=False)
+df_balanced.to_csv("data/utterance_table_balanced.csv", index=False)
