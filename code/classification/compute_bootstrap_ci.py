@@ -25,7 +25,7 @@ def main():
         "MIX_to_ZH"
     ]
     
-    classifiers = ["LR", "SVM-Linear", "SVM-RBF", "GRU", "CLeaD"]
+    classifiers = ["LR", "SVM-Linear", "SVM-RBF", "GRU", "CLeaD", "CLeaD w/o SupCon"]
     layers_base = [6, 7, 8, 9]
     layers_large = [12, 14, 16, 18]
     

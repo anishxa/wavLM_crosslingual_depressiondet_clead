@@ -1,4 +1,5 @@
 import os
+os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 import re
 import sys
 import numpy as np
@@ -210,7 +211,7 @@ def build_sequences(feature_dir, split, max_len=150):
         
     return padded_sequences, np.array(labels), masks
 
-def run_gru_classifier(train_dir, test_dir, epochs=100, batch_size=16, lr=1e-3, max_len=150):
+def run_gru_classifier(train_dir, test_dir, epochs=20, batch_size=16, lr=1e-3, max_len=150):
     # Reset random seeds inside the function to ensure reproducible initializations across all calls
     np.random.seed(42)
     torch.manual_seed(42)
@@ -295,7 +296,7 @@ def run_gru_classifier(train_dir, test_dir, epochs=100, batch_size=16, lr=1e-3, 
         
     return acc, f1, auc, spk_str, f1, acc, all_preds, all_probs, all_labels
 
-def run_clead_classifier(train_dir, test_dir, epochs=100, batch_size=32):
+def run_clead_classifier(train_dir, test_dir, epochs=20, batch_size=128, use_supcon=True):
     # Reset random seeds inside the function to ensure reproducible initializations
     np.random.seed(42)
     torch.manual_seed(42)
@@ -333,10 +334,14 @@ def run_clead_classifier(train_dir, test_dir, epochs=100, batch_size=32):
             optimizer.zero_grad()
             proj, logits = model(features)
             
-            proj_unsqueezed = proj.unsqueeze(1)
-            supcon_loss = criterion_supcon(proj_unsqueezed, labels=labels)
             ce_loss = criterion_ce(logits, labels)
-            loss = 0.5 * supcon_loss + 0.5 * ce_loss
+            if use_supcon:
+                proj_unsqueezed = proj.unsqueeze(1)
+                supcon_loss = criterion_supcon(proj_unsqueezed, labels=labels)
+                loss = 0.5 * supcon_loss + 0.5 * ce_loss
+            else:
+                loss = ce_loss
+                
             loss.backward()
             optimizer.step()
             
@@ -479,6 +484,19 @@ def main():
             except Exception as e:
                 print(f"    CLeaD failed: {e}")
                 
+            # 6. CLeaD w/o SupCon (Cross-Entropy only)
+            print(f"  Running CLeaD w/o SupCon for {cfg_name}...")
+            try:
+                acc_cld_nsc, f1_cld_nsc, auc_cld_nsc, spk_cld_nsc, spk_f1_cld_nsc, spk_acc_cld_nsc, p_cld_nsc, pr_cld_nsc, y_cld_nsc = run_clead_classifier(train_dir, test_dir, use_supcon=False)
+                save_predictions(model_variant, layer, cfg_name, "CLeaD w/o SupCon", p_cld_nsc, pr_cld_nsc, y_cld_nsc)
+                results.append({
+                    "Layer": layer, "Config": cfg_name, "Model": "CLeaD w/o SupCon",
+                    "Acc": acc_cld_nsc, "F1": f1_cld_nsc, "AUC": auc_cld_nsc,
+                    "Speaker_Vote": spk_cld_nsc, "Speaker_F1": spk_f1_cld_nsc, "Speaker_Acc": spk_acc_cld_nsc
+                })
+            except Exception as e:
+                print(f"    CLeaD w/o SupCon failed: {e}")
+                
     # Compile results table
     df_res = pd.DataFrame(results)
     df_res.to_csv(f"output/comprehensive_ablation_results_{model_variant}.csv", index=False)
@@ -498,7 +516,7 @@ def main():
         config_str = f"{row['Config']:<10}" if (row['Layer'] != prev_layer or row['Config'] != prev_config) else f"{'':<10}"
         
         table.append(f"{layer_str} | {config_str} | {row['Model']:<12} | {row['Acc']:.4f} | {row['F1']:.4f} | {row['AUC']:.4f} | {row['Speaker_Vote']}")
-        if row['Model'] == "CLeaD":
+        if row['Model'] == "CLeaD w/o SupCon":
             table.append("---------------------------------------------------------------------------------------------------------------")
             
         prev_layer = row['Layer']
@@ -628,7 +646,7 @@ def main():
         
         # Extract speaker level metrics for ZH->ZH and MIX->ZH on first layer
         for cfg_name in ["ZH -> ZH", "MIX -> ZH"]:
-            df_cfg = df_l6[(df_l6["Config"] == cfg_name) & (df_l6["Model"].isin(["LR", "GRU", "CLeaD"]))]
+            df_cfg = df_l6[(df_l6["Config"] == cfg_name) & (df_l6["Model"].isin(["LR", "GRU", "CLeaD", "CLeaD w/o SupCon"]))]
             first = True
             for _, row in df_cfg.iterrows():
                 cfg_str = f"**{cfg_name}**" if first else ""
@@ -651,7 +669,7 @@ def main():
         
         df_mix_zh = df_res[df_res["Config"] == "MIX -> ZH"]
         for layer_val in layers:
-            df_layer = df_mix_zh[(df_mix_zh["Layer"] == layer_val) & (df_mix_zh["Model"].isin(["LR", "GRU", "CLeaD"]))]
+            df_layer = df_mix_zh[(df_mix_zh["Layer"] == layer_val) & (df_mix_zh["Model"].isin(["LR", "GRU", "CLeaD", "CLeaD w/o SupCon"]))]
             first = True
             for _, row in df_layer.iterrows():
                 l_str = f"**Layer {layer_val}**" if first else ""
