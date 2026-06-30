@@ -290,6 +290,14 @@ Mixed-domain models train on a pooled combination of English and Mandarin speech
 
 ---
 
+### 4.2 Manifold Alignment Visualization (t-SNE)
+
+To visualize how CLeaD successfully aligns features from different domains (English and Mandarin) into a shared representation space, we plot the 2D t-SNE projections of segment embeddings before and after contrastive learning:
+
+![CLeaD t-SNE Alignment Projections](output/clead_tsne_projection.png)
+
+---
+
 ## 5. Bootstrapped Confidence Intervals (95%, N=2000)
 
 Evaluating F1 and AUC metrics with bootstrapped resamples.

@@ -211,7 +211,7 @@ def build_sequences(feature_dir, split, max_len=150):
         
     return padded_sequences, np.array(labels), masks
 
-def run_gru_classifier(train_dir, test_dir, epochs=20, batch_size=16, lr=1e-3, max_len=150):
+def run_gru_classifier(train_dir, test_dir, epochs=100, batch_size=16, lr=1e-3, max_len=150):
     # Reset random seeds inside the function to ensure reproducible initializations across all calls
     np.random.seed(42)
     torch.manual_seed(42)
@@ -296,7 +296,7 @@ def run_gru_classifier(train_dir, test_dir, epochs=20, batch_size=16, lr=1e-3, m
         
     return acc, f1, auc, spk_str, f1, acc, all_preds, all_probs, all_labels
 
-def run_clead_classifier(train_dir, test_dir, epochs=20, batch_size=128, use_supcon=True):
+def run_clead_classifier(train_dir, test_dir, epochs=100, batch_size=32, use_supcon=True):
     # Reset random seeds inside the function to ensure reproducible initializations
     np.random.seed(42)
     torch.manual_seed(42)
