@@ -50,6 +50,9 @@ graph TD
 ## Datasets
 * **E-DAIC:** English corpus used for baseline training and evaluation.
 * **MODMA:** Mandarin corpus used to validate zero-shot cross-lingual alignment.
+  > [!NOTE]
+  > **Citation Correction**: The MODMA dataset (*MODMA dataset: a Multi-modal Open Dataset for Mental-disorder Analysis*) should be cited in text as **Cai et al. (2020)** based on the first author Hanshu Cai, correcting the mismatch with "Sun et al." in previous drafts.
+
 
 ---
 
