@@ -120,27 +120,69 @@ def main():
     # Set up matplotlib figure
     fig, axes = plt.subplots(1, 2, figsize=(18, 8), dpi=300)
     
-    # Palette definition for high-contrast professional look
-    colors = {
-        "English (E-DAIC) - HC": "#1f77b4",        # Blue
-        "English (E-DAIC) - MDD": "#d62728",       # Red
-        "Mandarin (MODMA) - HC": "#aec7e8",        # Light Blue
-        "Mandarin (MODMA) - MDD": "#ff9896"        # Light Red / Coral
+    # Plotting styles for grayscale safety and caption matching
+    plot_styles = {
+        "English (E-DAIC) - HC": {
+            "marker": "o",
+            "facecolor": "none",
+            "edgecolor": "#1f77b4",
+            "linewidth": 1.5,
+            "s": 35
+        },
+        "English (E-DAIC) - MDD": {
+            "marker": "o",
+            "facecolor": "#d62728",
+            "edgecolor": "#d62728",
+            "linewidth": 1.0,
+            "s": 35
+        },
+        "Mandarin (MODMA) - HC": {
+            "marker": "^",
+            "facecolor": "none",
+            "edgecolor": "#1f77b4",  # Using same blue for HC to be grayscale-safe
+            "linewidth": 1.5,
+            "s": 40
+        },
+        "Mandarin (MODMA) - MDD": {
+            "marker": "^",
+            "facecolor": "#d62728",  # Using same red for MDD to be grayscale-safe
+            "edgecolor": "#d62728",
+            "linewidth": 1.0,
+            "s": 40
+        }
     }
 
     # Before CLeaD
-    for category, color in colors.items():
+    for category, style in plot_styles.items():
         idx = (labels_combo == category)
-        axes[0].scatter(tsne_before[idx, 0], tsne_before[idx, 1], c=color, label=category, alpha=0.75, edgecolors='none', s=25)
+        axes[0].scatter(
+            tsne_before[idx, 0], tsne_before[idx, 1],
+            marker=style["marker"],
+            facecolors=style["facecolor"],
+            edgecolors=style["edgecolor"],
+            linewidths=style["linewidth"],
+            s=style["s"],
+            label=category,
+            alpha=0.75
+        )
     axes[0].set_title("128-d Projection Space BEFORE CLeaD Training", fontsize=14, fontweight='bold', pad=15)
     axes[0].grid(True, linestyle="--", alpha=0.5)
     axes[0].set_xlabel("t-SNE Dimension 1", fontsize=12)
     axes[0].set_ylabel("t-SNE Dimension 2", fontsize=12)
 
     # After CLeaD
-    for category, color in colors.items():
+    for category, style in plot_styles.items():
         idx = (labels_combo == category)
-        axes[1].scatter(tsne_after[idx, 0], tsne_after[idx, 1], c=color, label=category, alpha=0.75, edgecolors='none', s=25)
+        axes[1].scatter(
+            tsne_after[idx, 0], tsne_after[idx, 1],
+            marker=style["marker"],
+            facecolors=style["facecolor"],
+            edgecolors=style["edgecolor"],
+            linewidths=style["linewidth"],
+            s=style["s"],
+            label=category,
+            alpha=0.75
+        )
     axes[1].set_title("128-d Projection Space AFTER CLeaD Training", fontsize=14, fontweight='bold', pad=15)
     axes[1].grid(True, linestyle="--", alpha=0.5)
     axes[1].set_xlabel("t-SNE Dimension 1", fontsize=12)
