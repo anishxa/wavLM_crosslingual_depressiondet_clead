@@ -117,8 +117,8 @@ def main():
         
     labels_combo = np.array(labels_combo)
 
-    # Set up matplotlib figure
-    fig, axes = plt.subplots(1, 2, figsize=(18, 8), dpi=300)
+    # Set up matplotlib figure with a top/down (2x1) layout
+    fig, axes = plt.subplots(2, 1, figsize=(10, 16), dpi=300)
     
     # Plotting styles for grayscale safety and caption matching
     plot_styles = {
@@ -193,7 +193,7 @@ def main():
     fig.legend(handles, labels, loc='lower center', ncol=4, bbox_to_anchor=(0.5, 0.01), fontsize=11, frameon=True, facecolor='white', edgecolor='none')
     
     plt.tight_layout()
-    plt.subplots_adjust(bottom=0.15)
+    plt.subplots_adjust(bottom=0.08)
     
     # Save Plot
     os.makedirs("output", exist_ok=True)
