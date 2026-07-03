@@ -14,9 +14,7 @@ sys.path.append(os.path.join(os.getcwd(), "code", "classification"))
 from models import ContrastiveAlignmentNet, SupConLoss
 
 def main():
-    print("==========================================================================")
-    print("      QUANTIFYING T-SNE DOMAIN ALIGNMENT CLAIMS (CLeaD)")
-    print("==========================================================================")
+    print("Quantifying domain alignment...")
     
     # 1. Path Settings
     layer = 7
@@ -123,32 +121,31 @@ def main():
 
     # 10. Write report
     md_content = "# Quantitative t-SNE & Domain Alignment Analysis\n\n"
-    md_content += "This report provides mathematical metrics to support the visual claims made in the t-SNE projection plots before and after CLeaD contrastive domain alignment.\n\n"
+    md_content += "This report quantifies cross-lingual domain alignment before and after CLeaD training.\n\n"
     
     md_content += "## 1. Domain Predictability (Language Classifier Accuracy)\n"
-    md_content += "We trained a Logistic Regression classifier using 5-fold cross-validation to predict the language domain (English vs Mandarin) from the 128-d projections. Successful alignment means the domain is indistinguishable (accuracy drops to 50% random chance).\n\n"
+    md_content += "We trained a Logistic Regression classifier (5-fold CV) to predict the language domain (English vs Mandarin) from the 128-D projections. Better alignment corresponds to a drop in classifier accuracy toward the 50% random chance baseline.\n\n"
     md_content += f"- **Language Classification Accuracy (BEFORE CLeaD)**: **{acc_lang_before*100:.2f}%**\n"
     md_content += f"- **Language Classification Accuracy (AFTER CLeaD)**: **{acc_lang_after*100:.2f}%**\n"
-    md_content += f"- **Delta**: **-{(acc_lang_before - acc_lang_after)*100:.2f}%** (Proves language domain features are successfully aligned/removed).\n\n"
+    md_content += f"- **Delta**: **-{(acc_lang_before - acc_lang_after)*100:.2f}%** (indicating successful domain alignment).\n\n"
     
     md_content += "## 2. Cluster Separation (Silhouette Scores)\n"
-    md_content += "Silhouette scores measure cluster cohesion and separation (ranges from -1.0 to +1.0). A score of +1.0 indicates perfect separation; 0.0 indicates overlapping clusters; negative scores indicate poor separation.\n\n"
-    md_content += "| Target Grouping | Silhouette Score (BEFORE) | Silhouette Score (AFTER) | Goal of Alignment |\n"
+    md_content += "Silhouette scores measure cluster cohesion and separation (ranging from -1.0 to +1.0).\n\n"
+    md_content += "| Target Grouping | Silhouette Score (BEFORE) | Silhouette Score (AFTER) | Target |\n"
     md_content += "| :--- | :---: | :---: | :--- |\n"
     md_content += f"| **Language (E-DAIC vs MODMA)** | {sil_lang_before:.4f} | {sil_lang_after:.4f} | **Decrease** (mix language distributions) |\n"
     md_content += f"| **Depression Status (HC vs MDD)** | {sil_class_before:.4f} | {sil_class_after:.4f} | **Increase / Stable** (preserve diagnostic cues) |\n\n"
     
     md_content += "### Key Takeaways:\n"
-    md_content += f"- The **Silhouette Score for Language** drops from **{sil_lang_before:.4f}** to **{sil_lang_after:.4f}**, confirming that the domains overlap completely after contrastive alignment.\n"
-    md_content += f"- Concurrently, the **Silhouette Score for Depression Status** increases/stabilizes from **{sil_class_before:.4f}** to **{sil_class_after:.4f}**, showing that clinical classification cues are preserved and not washed away by the domain alignment process.\n"
+    md_content += f"- The **Silhouette Score for Language** drops from **{sil_lang_before:.4f}** to **{sil_lang_after:.4f}**, showing that the language domains are well-mixed after alignment.\n"
+    md_content += f"- The **Silhouette Score for Depression Status** increases/stabilizes from **{sil_class_before:.4f}** to **{sil_class_after:.4f}**, confirming that depression-related features are preserved during alignment.\n"
     
     os.makedirs("output", exist_ok=True)
     out_path = "output/tsne_quantification_results.md"
     with open(out_path, "w") as f:
         f.write(md_content)
         
-    print(f"t-SNE quantification complete! Results saved to {out_path}")
-    print("==========================================================================")
+    print(f"t-SNE quantification complete! Saved to {out_path}")
 
 if __name__ == "__main__":
     main()

@@ -14,20 +14,19 @@ sys.path.append(os.path.join(os.getcwd(), "code", "classification"))
 from models import ContrastiveAlignmentNet, SupConLoss
 
 def main():
-    print("==========================================================================")
-    # 1. Path Settings
+    # Paths and configurations
     layer = 7
     model_dir = "wavlm_base_plus"
     train_dir = f"features/{model_dir}/features_mix_layer{layer}"
     test_edaic_dir = f"features/{model_dir}/features_edaic_layer{layer}"
     test_modma_dir = f"features/{model_dir}/features_modma_layer{layer}"
     
-    # 2. Check if features exist
+    # Ensure features are present
     if not os.path.exists(os.path.join(train_dir, "X_train_mean.npy")):
         print(f"Features not found at {train_dir}. Skipping t-SNE plot.")
         return
 
-    # 3. Load MIX training features to train model on the fly
+    # Load combined training features
     X_train = np.concatenate([
         np.load(os.path.join(train_dir, "X_train_mean.npy")),
         np.load(os.path.join(train_dir, "X_val_mean.npy"))
@@ -37,7 +36,7 @@ def main():
         np.load(os.path.join(train_dir, "y_val.npy"))
     ], axis=0)
 
-    # 4. Load EDAIC (English) and MODMA (Mandarin) test features for visualization
+    # Load English and Mandarin test sets for visualization
     X_edaic_test = np.load(os.path.join(test_edaic_dir, "X_test_mean.npy"))
     y_edaic_test = np.load(os.path.join(test_edaic_dir, "y_test.npy"))
     lang_edaic_test = np.zeros_like(y_edaic_test) # 0 for English
@@ -51,21 +50,21 @@ def main():
     y_test = np.concatenate([y_edaic_test, y_modma_test], axis=0)
     lang_test = np.concatenate([lang_edaic_test, lang_modma_test], axis=0)
 
-    # 5. Initialize Model
+    # Initialize alignment model
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Initializing ContrastiveAlignmentNet on device: {device}...")
     torch.manual_seed(42)
     np.random.seed(42)
     model = ContrastiveAlignmentNet(input_dim=X_train.shape[1], proj_dim=128, num_classes=2).to(device)
 
-    # 6. Extract Projections BEFORE training
+    # Get projections before alignment
     model.eval()
     with torch.no_grad():
         projs_before, _ = model(torch.tensor(X_test).float().to(device))
         projs_before = projs_before.cpu().numpy()
 
-    # 7. Train Model on the fly (CLeaD)
-    print("Training CLeaD model on target MIX features to extract trained projections...")
+    # Train model (CLeaD)
+    print("Training CLeaD model...")
     class_counts = torch.bincount(torch.tensor(y_train).long())
     class_weights = len(y_train) / (len(class_counts) * class_counts.float())
     class_weights = class_weights.to(device)
@@ -93,20 +92,20 @@ def main():
             loss.backward()
             optimizer.step()
 
-    # 8. Extract Projections AFTER training
+    # Get projections after alignment
     model.eval()
     with torch.no_grad():
         projs_after, _ = model(torch.tensor(X_test).float().to(device))
         projs_after = projs_after.cpu().numpy()
 
-    # 9. Compute t-SNE
-    print("Computing t-SNE dimensionality reduction for both states...")
+    # Run t-SNE
+    print("Running t-SNE...")
     tsne = TSNE(n_components=2, perplexity=30, random_state=42)
     tsne_before = tsne.fit_transform(projs_before)
     tsne_after = tsne.fit_transform(projs_after)
 
-    # 10. Plotting
-    print("Plotting projections before and after alignment...")
+    # Plotting
+    print("Plotting projections...")
     
     # Map combinations of language & label to names/colors
     labels_combo = []
@@ -201,7 +200,6 @@ def main():
     plt.savefig(out_path, bbox_inches='tight')
     plt.close()
     print(f"t-SNE visualization saved to {out_path}!")
-    print("==========================================================================")
 
 if __name__ == "__main__":
     main()

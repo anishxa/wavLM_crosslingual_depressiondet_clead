@@ -120,7 +120,7 @@ def run_loso_for_layer(model_dir, layer, dims):
             optimizer = optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-4)
             
             model.train()
-            for epoch in range(5): # Fast train epochs for fold loop efficiency
+            for epoch in range(5): # Optimized train epochs for fold loop efficiency
                 for features, labels in train_loader:
                     features, labels = features.to(device), labels.to(device)
                     optimizer.zero_grad()

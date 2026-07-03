@@ -106,6 +106,22 @@ python3 code/classification/run_comprehensive_ablation.py --model large
 python3 code/classification/compare_results.py
 ```
 
+### 5. Reviewer-Requested Experiments & Analysis (Optional)
+To run the additional experiments requested by reviewers (leakage study, CLeaD hyperparameter sweep, and domain alignment visualization):
+```bash
+# 1. Run the within-pipeline leakage ablation study
+python3 code/classification/run_leakage_ablation.py
+
+# 2. Run the quantitative t-SNE domain alignment analysis
+python3 code/classification/quantify_tsne_alignment.py
+
+# 3. Generate the t-SNE projection visualization plots
+python3 code/classification/plot_tsne_projections.py
+
+# 4. Run the CLeaD hyperparameter temperature and lambda sweep
+python3 code/classification/run_hyperparameter_sweep.py
+```
+
 ---
 
 ## Results & Performance Scores
@@ -446,10 +462,10 @@ Evaluating F1 and AUC metrics with bootstrapped resamples.
 ## Quantitative Reviewer Feedback Additions
 
 ### 1. Within-Pipeline Leakage Ablation (Section III-C)
-To address the reviewer request to make the leakage claims airtight, we ablated the effect of pipeline design choices on WavLM Base-Plus (Layer 6). We compare our **Airtight** split (speaker-independent, local standardization fitted strictly on training fold) against:
-1. **Scaling Leakage only**: Speaker-independent split, but standardized globally before cross-validation.
-2. **Speaker Leakage only**: Random split of segments (allowing the same speaker to appear in both train and validation/test folds), but local standardization.
-3. **Fully Leaky**: Shuffled random segment split and global feature scaling.
+To back up our leakage claims, we tested how different pipeline design choices affect results on WavLM Base-Plus (Layer 6). We compare our clean, **Airtight** setup (speaker-independent splits, local standardization fitted only on the training fold) against three leaky setups:
+1. **Scaling Leakage only**: Speaker-independent split, but standardizing the whole dataset globally before cross-validation.
+2. **Speaker Leakage only**: Random segment split (allowing segments from the same speaker to end up in both training and testing folds), with local standardization.
+3. **Fully Leaky**: Random segment split combined with global feature scaling.
 
 | Dataset | Classifier | Airtight (F1 / AUC) | Scaling Leakage Only (F1 / AUC) | Speaker Identity Leakage Only (F1 / AUC) | Fully Leaky Pipeline (F1 / AUC) |
 | :--- | :--- | :---: | :---: | :---: | :---: |
@@ -458,12 +474,12 @@ To address the reviewer request to make the leakage claims airtight, we ablated 
 | **MODMA** | LR | 0.6279 / 0.7063 | 0.6282 / 0.7064 | 0.8563 / 0.9329 | 0.8557 / 0.9329 |
 | **MODMA** | SVM | 0.6274 / 0.7064 | 0.6283 / 0.7063 | 0.8567 / 0.9329 | 0.8562 / 0.9329 |
 
-*Takeaway*: **Speaker Identity Leakage** causes massive, artificial F1-score inflation of **~26.5%** on E-DAIC and **~23.0%** on MODMA, confirming that classifiers default to memorizing acoustic signatures of participants rather than depression biomarkers when evaluated on leaky splits.
+*Takeaway*: **Speaker Identity Leakage** artificially inflates F1 scores by **~26.5%** on E-DAIC and **~23.0%** on MODMA. This shows that classifiers easily memorize speaker voice signatures or recording environments instead of learning actual depression cues when splits aren't kept strictly speaker-independent.
 
 ### 2. t-SNE Domain Alignment Quantification (CLeaD)
-To quantitatively substantiate the cross-lingual domain alignment visual claims in the t-SNE plot, we evaluated:
-1. **Language Predictability (Domain Classifier Accuracy)**: Accuracy of a Logistic Regression classifier predicting the language domain (English vs. Mandarin) from 128-d projections. Successful alignment implies domain predictability drops to random chance (50.00%).
-2. **Language vs. Depression Cluster Separation**: Silhouette scores of the projections grouped by Language (domain) and Depression Status (diagnostic class).
+To put numbers behind the visual overlap in our t-SNE plots, we computed:
+1. **Domain Classifier Predictability**: The accuracy of a Logistic Regression model trained to guess the language (English vs. Mandarin) from the 128-D representations. Better domain alignment should push this accuracy down toward the 50% random guessing baseline.
+2. **Cluster Separation (Silhouette Score)**: Grouped by both Language (domain) and Depression Status (target class) to measure how well the distributions are aligned vs. separated.
 
 | Alignment Metric | Before CLeaD | After CLeaD | Desired Behavior |
 | :--- | :---: | :---: | :--- |
@@ -471,4 +487,4 @@ To quantitatively substantiate the cross-lingual domain alignment visual claims 
 | **Language Silhouette Score** | **0.0196** | **0.0181** | **Decrease** (mix language distributions) |
 | **Depression Silhouette Score** | **0.0100** | **0.0655** | **Increase** (enhance class separation) |
 
-*Takeaway*: CLeaD successfully mixes the language distributions (reducing language predictability and silhouette score) while concurrently increasing the diagnostic class separation silhouette score by **6.5x**, mathematically validating that contrastive alignment aligns cross-lingual domains without destroying clinical biomarkers.
+*Takeaway*: CLeaD successfully blends the two language domains (lowering language predictability and its silhouette score) while increasing the silhouette score for depression status by **6.5x**. This mathematically confirms that the contrastive alignment helps bridge the language gap without washing out clinical markers.

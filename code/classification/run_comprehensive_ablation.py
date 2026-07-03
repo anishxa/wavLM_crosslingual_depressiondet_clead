@@ -96,7 +96,7 @@ def run_segment_classifier(train_dir, test_dir, clf_type):
     X_test = np.load(os.path.join(test_dir, "X_test_mean.npy"))
     y_test = np.load(os.path.join(test_dir, "y_test.npy"))
     
-    # Scale features for numerical stability and faster convergence for both SVM and LR
+    # Scale features for numerical stability and optimized convergence for both SVM and LR
     scaler = StandardScaler()
     X_train = scaler.fit_transform(X_train)
     X_test = scaler.transform(X_test)

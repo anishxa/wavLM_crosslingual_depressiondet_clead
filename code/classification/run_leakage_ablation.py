@@ -117,9 +117,7 @@ def evaluate_leakage_for_layer(model_dir, dataset_name, layer):
     return results
 
 def main():
-    print("==========================================================================")
-    print("      RUNNING WITHIN-PIPELINE LEAKAGE ABLATION STUDY (SECTION III-C)")
-    print("==========================================================================")
+    print("Running leakage ablation study...")
     
     # Evaluate on WavLM Base-Plus layer 6 for both datasets
     print("Evaluating E-DAIC (English)...")
@@ -129,7 +127,7 @@ def main():
     modma_results = evaluate_leakage_for_layer("wavlm_base_plus", "modma", layer=6)
     
     # Save the ablation table
-    md_content = "# Within-Pipeline Leakage Ablation Study (Section III-C)\n\n"
+    md_content = "# Within-Pipeline Leakage Ablation Study\n\n"
     md_content += "This report quantifies how pipeline design flaws (feature scaling leakage and speaker identity overlap) artificially inflate performance metrics. Evaluated on WavLM Base-Plus (Layer 6).\n\n"
     
     md_content += "## 1. E-DAIC Dataset (English)\n\n"
@@ -145,17 +143,16 @@ def main():
         md_content += f"| {r['Classifier']} | {r['Airtight_F1']:.4f} / {r['Airtight_AUC']:.4f} | {r['ScalingLeak_F1']:.4f} / {r['ScalingLeak_AUC']:.4f} | {r['SpeakerLeak_F1']:.4f} / {r['SpeakerLeak_AUC']:.4f} | {r['FullyLeaky_F1']:.4f} / {r['FullyLeaky_AUC']:.4f} |\n"
         
     md_content += "\n### Key Takeaways:\n"
-    md_content += "- **Speaker Identity Leakage** causes the most severe performance inflation. When segments of the same speaker are split across train and test partitions, classifiers exploit speaker-specific characteristics (voice signatures, recording environment) rather than depression cues.\n"
-    md_content += "- **Feature Scaling Leakage** causes a minor but significant metric boost by leaking validation/test distribution statistics into training standardization.\n"
-    md_content += "- Utilizing a leakage-free design is essential to prevent over-optimistic performance reports that fail to generalize to true unseen subjects.\n"
+    md_content += "- **Speaker Identity Leakage** is the main driver of inflated scores. Splitting segments from the same speaker across train and test sets lets the model memorize speaker/recording quirks rather than depression cues.\n"
+    md_content += "- **Feature Scaling Leakage** adds a small but clear boost by letting test set distribution statistics leak into the training scaler.\n"
+    md_content += "- A clean, leakage-free setup is necessary to get realistic performance estimates that generalize to new speakers.\n"
     
     os.makedirs("output", exist_ok=True)
     out_path = "output/leakage_ablation_results.md"
     with open(out_path, "w") as f:
         f.write(md_content)
         
-    print(f"Leakage ablation study complete! Results saved to {out_path}")
-    print("==========================================================================")
+    print(f"Leakage ablation study complete! Saved to {out_path}")
 
 if __name__ == "__main__":
     main()

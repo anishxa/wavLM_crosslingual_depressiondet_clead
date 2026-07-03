@@ -178,7 +178,7 @@ def main():
     
     with open(report_path, "w") as f:
         f.write("# Hyperparameter Sweep Report for CLeaD Contrastive Alignment\n\n")
-        f.write("This report summarizes the performance of CLeaD under different values of supervised contrastive loss temperature ($\\tau$) and loss weighting weight ($\\lambda$) on the **MIX -> ZH** (cross-lingual transfer) task.\n\n")
+        f.write("This report summarizes CLeaD performance on the MIX -> ZH cross-lingual transfer task across various supervised contrastive loss temperatures ($\\tau$) and loss weighting values ($\\lambda$).\n\n")
         
         f.write("## 1. WavLM Base-Plus (Layer 7)\n\n")
         f.write("| Temperature ($\\tau$) | Loss Weight ($\\lambda$) | Segment Acc | Segment F1 | Segment AUC | Speaker Vote (MDD/HC) | Speaker Acc |\n")
