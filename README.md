@@ -1,6 +1,6 @@
-# Multi-Layer WavLM Ablation for Cross-Lingual Depression Detection: Contrastive Representation Alignment and Chronological Sequence Classifiers
+# Layer-wise Cross-Lingual Depression Detection from Speech: Analysis with Contrastive Alignment
 
-This repository contains the codebase for cross-lingual zero-shot depression detection from speech, specifically targeting the transfer gap between Germanic (English) and Tonal (Mandarin) languages. We perform a multi-layer evaluation using both `microsoft/wavlm-base-plus` and `microsoft/wavlm-large` speech encoders.
+This repository contains the codebase for cross-lingual zero-shot depression detection from speech, specifically targeting the transfer gap between Germanic (English) and Tonal (Mandarin) languages. We perform a multi-layer evaluation using both `microsoft/wavlm-base-plus` and `microsoft/wavlm-large` speech encoders paired with supervised contrastive alignment (CLeaD).
 
 ## Master Pipeline Structure
 
@@ -13,32 +13,29 @@ graph TD
     classDef sequence fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px;
     classDef output fill:#ffebee,stroke:#c62828,stroke-width:2px;
 
-    Audio["Audio Input"]:::input --> Seg["10s Sliding Segment Window"]:::input
-    Seg --> Encoder["WavLM Speech Encoder<br/>Frozen Middle Layers<br/>Base-Plus: 768-d | Large: 1024-d"]:::encoder
-    Encoder --> Embeds["Segment Embeddings"]:::encoder
+    Audio["Audio Input (E-DAIC / MODMA)"]:::input --> Seg["3s Sliding Segment Window (50% Overlap)"]:::input
+    Seg --> Encoder["WavLM Speech Encoder (Frozen)<br/>Base-Plus: Layers 6–9 (768-d)<br/>Large: Layers 12–18 (1024-d)"]:::encoder
+    Encoder --> MeanPool["Utterance Frame Mean Pooling"]:::encoder
 
-    Embeds --> |Static Segment Pooling| MeanPool["Mean Segment Pooling"]:::static
-    Embeds --> |Temporal Sequence Modeling| SpkGroup["Group Segments by Speaker"]:::sequence
+    MeanPool --> CLeaD["CLeaD Alignment Framework"]:::static
+    MeanPool --> Baselines["Baseline Classifiers<br/>(LR, SVM-Linear, SVM-RBF)"]:::static
+    MeanPool --> SpkGroup["Group Segments by Speaker"]:::sequence
 
-    %% Static Branch
-    MeanPool --> CLeaD["CLeaD Alignment Head<br/>SupCon Loss"]:::static
-    MeanPool --> ML_Classifiers["Segment Classifiers<br/>SVM-RBF, SVM-Linear, LR"]:::static
+    %% CLeaD Architecture
+    CLeaD --> ProjHead["Projection Head<br/>z = L2-Norm(W2 ReLU(BN(W1 h))) -> 128-d"]:::static
+    CLeaD --> ClassHead["Classification Head<br/>2-Layer MLP (128 -> 64 -> 2)"]:::static
+    ProjHead --> SupCon["Supervised Contrastive Loss L_s (tau=0.1)"]:::static
+    ClassHead --> CE["Class-Weighted Cross-Entropy L_c"]:::static
+    SupCon --> JointLoss["Joint Loss: L = lambda L_s + (1-lambda) L_c (lambda=0.5)"]:::static
+    CE --> JointLoss
 
-    CLeaD --> Proj["Projection Head<br/>256-d"]:::static
-    Proj --> LinClass["Linear Classifier Head"]:::static
+    JointLoss --> SegPreds["Segment Predictions"]:::output
+    Baselines --> SegPreds
+    SpkGroup --> Chrono["Chronological Sorting"]:::sequence
+    Chrono --> BiGRU["Bidirectional GRU + Self-Attention"]:::sequence
+    BiGRU --> SpeakerPreds["Speaker-level Sequence Pred"]:::output
 
-    LinClass --> SegPreds["Segment Predictions"]:::output
-    ML_Classifiers --> SegPreds
-
-    %% Sequence Branch
-    SpkGroup --> Chrono["Chronological Sorting by Time"]:::sequence
-    Chrono --> BiGRU["Bidirectional GRU"]:::sequence
-    BiGRU --> SelfAttn["Self-Attention Pooling"]:::sequence
-    SelfAttn --> LinSeqClass["Linear Classifier Head"]:::sequence
-    LinSeqClass --> SpeakerPreds["Speaker-level Sequence Pred"]:::output
-
-    %% Speaker Majority Vote
-    SegPreds --> |Speaker Majority Vote| Vote["Speaker Predictions"]:::output
+    SegPreds --> |Speaker Majority Vote| Vote["Speaker Majority Vote"]:::output
 ```
 
 ## Component Overview
