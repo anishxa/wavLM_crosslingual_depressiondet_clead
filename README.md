@@ -53,6 +53,21 @@ graph TD
   > [!NOTE]
   > **Citation Correction**: The MODMA dataset (*MODMA dataset: a Multi-modal Open Dataset for Mental-disorder Analysis*) should be cited in text as **Cai et al. (2020)** based on the first author Hanshu Cai, correcting the mismatch with "Sun et al." in previous drafts.
 
+## Reproducibility & Speaker-Independent Splits
+
+To prevent **Speaker Identity Leakage**, all recording segments from a given speaker are kept strictly within a single partition (Train, Validation, or Test) using `StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=42)`.
+
+* **Fixed Process Random Seed:** A single fixed seed of **`42`** is set across all operations (`np.random.seed(42)` and `torch.manual_seed(42)`).
+* **Static Split Reuse:** The speaker partitions are computed once and saved as static CSV files (`data/utterance_table_edaic_segmented_split.csv` and `data/utterance_table_modma_segmented_split.csv`). Every single run out of the 240 evaluation runs reuses these identical split files.
+* **Canonical Speaker ID Lists:**
+  * **E-DAIC Corpus (122 Participants Total, 75/24/23 Split):**
+    * **Train (75 speakers):** `300, 302, 306, 307, 311, 312, 313, 317, 318, 319, 321, 323, 325, 326, 327, 328, 329, 330, 331, 332, 334, 336, 338, 339, 341, 344, 345, 346, 347, 350, 355, 356, 358, 360, 361, 362, 365, 366, 367, 368, 371, 372, 373, 375, 376, 377, 378, 379, 382, 383, 384, 385, 386, 387, 388, 392, 393, 395, 397, 401, 403, 406, 408, 411, 413, 414, 415, 416, 417, 418, 419, 421, 422, 423, 424`
+    * **Validation (24 speakers):** `303, 305, 308, 310, 314, 316, 320, 322, 351, 352, 353, 354, 357, 359, 369, 370, 381, 396, 399, 407, 409, 412, 420, 425`
+    * **Test (23 speakers):** `301, 304, 309, 315, 324, 333, 335, 340, 343, 348, 349, 363, 364, 374, 380, 389, 390, 391, 400, 402, 404, 405, 410`
+  * **MODMA Corpus (52 Participants Total, 31/11/10 Split):**
+    * **Train (31 speakers):** `02010001, 02010002, 02010003, 02010004, 02010005, 02010009, 02010012, 02010023, 02010024, 02010025, 02010034, 02010036, 02010037, 02020004, 02020007, 02020010, 02020011, 02020016, 02020018, 02020021, 02020022, 02020026, 02030001, 02030004, 02030005, 02030006, 02030008, 02030009, 02030010, 02030015, 02030017`
+    * **Validation (11 speakers):** `02010010, 02010011, 02010014, 02010018, 02010039, 02020014, 02020023, 02020027, 02030002, 02030007, 02030016`
+    * **Test (10 speakers):** `02010006, 02010008, 02010013, 02010015, 02010022, 02020008, 02020015, 02020019, 02020025, 02030014`
 
 ---
 
