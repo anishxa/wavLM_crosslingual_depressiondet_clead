@@ -118,22 +118,6 @@ python3 code/classification/run_comprehensive_ablation.py --model large
 python3 code/classification/compare_results.py
 ```
 
-### 5. Reviewer-Requested Experiments & Analysis (Optional)
-To run the additional experiments requested by reviewers (leakage study, CLeaD hyperparameter sweep, and domain alignment visualization):
-```bash
-# 1. Run the within-pipeline leakage ablation study
-python3 code/classification/run_leakage_ablation.py
-
-# 2. Run the quantitative t-SNE domain alignment analysis
-python3 code/classification/quantify_tsne_alignment.py
-
-# 3. Generate the t-SNE projection visualization plots
-python3 code/classification/plot_tsne_projections.py
-
-# 4. Run the CLeaD hyperparameter temperature and lambda sweep
-python3 code/classification/run_hyperparameter_sweep.py
-```
-
 ---
 
 ## Results & Performance Scores
