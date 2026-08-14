@@ -81,7 +81,7 @@ For convenience, you can execute the entire pipeline or only the downstream clas
 ```
 
 ### 2. Manual Preprocessing
-To segment the audio datasets into 10-second sliding windows and build mixed domain tables manually:
+To segment the audio datasets into 3-second sliding windows (50% overlap) and build mixed domain tables manually:
 ```bash
 # 1. Segment and split EDAIC
 python3 code/preprocessing/segment_edaic_sliding.py
